@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#071a12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fairway One" />
+  <meta name="description" content="Fairway One — Any format. Any event. Your golf." />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/fairway-one-mark.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <title>Fairway One</title>
+</head>
+<body>
+  <div class="site-shell">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <aside class="desktop-brand-panel">
+      <div class="brand large-brand">
+        <span class="brand-mark"><span class="brand-flag"></span><span class="brand-pin"></span></span>
+        <span class="brand-copy"><strong>FAIRWAY</strong><span>ONE</span></span>
+      </div>
+      <p class="desktop-kicker">THE NEXT GENERATION OF SOCIAL GOLF</p>
+      <h2>Any format.<br>Any event.<br><em>Your golf.</em></h2>
+      <p>One elegant scoring engine for Stroke, Stableford, Match Play, teams and everything we build next.</p>
+      <div class="desktop-feature-list">
+        <span><span class="feature-check">✓</span> Multi-format live scoring</span>
+        <span><span class="feature-check">✓</span> Multiple scorers, one round</span>
+        <span><span class="feature-check">✓</span> Built for mixed-format events</span>
+      </div>
+      <div class="prototype-stamp">🏆 FAIRWAY ONE · PROTOTYPE 01</div>
+    </aside>
+
+    <div class="app-frame" id="appFrame">
+      <div class="app-content" id="appContent"></div>
+      <nav class="bottom-nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-tab="home"><span class="nav-icon">⌂</span><span>Home</span></button>
+        <button class="nav-item" data-tab="play"><span class="nav-icon">⚑</span><span>Play</span></button>
+        <button class="nav-item" data-tab="events"><span class="nav-icon">◫</span><span>Events</span></button>
+        <button class="nav-item" data-tab="leaderboard"><span class="nav-icon">▥</span><span>Scores</span></button>
+        <button class="nav-item" data-tab="profile"><span class="nav-icon">◉</span><span>Profile</span></button>
+      </nav>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
