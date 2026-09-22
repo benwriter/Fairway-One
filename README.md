@@ -1,4 +1,10 @@
-# Fairway One V9
+# Fairway One V9.1
+
+V9.1 is a focused mobile polish release on top of V9.
+
+- The Home profile badge now displays the golfer’s uploaded profile photo, with centred initials only as a fallback.
+- Start Round / setup sheets are locked to vertical scrolling so diagonal iOS swipes cannot make the sheet drift sideways.
+- Cache versions are bumped so installed PWAs receive the fixes promptly.
 
 Fairway One V9 makes cloud events account-linked and gives each golfer their own scorecard while preserving shared team scoring where the format requires it.
 
