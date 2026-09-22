@@ -1,4 +1,4 @@
-# Fairway One — Functional Prototype V5.1
+# Fairway One — Functional Prototype V5.2
 
 Version 5.1 builds on the first major product/design milestone for Fairway One.
 
@@ -100,3 +100,9 @@ V5 stores a competition-points value for each custom segment and shows segment l
 Build Your Round now derives a final result for each completed custom segment. The segment's configured competition points are awarded to the winner, or split evenly between tied winners. These awards are then totalled into an Overall Event Score.
 
 This calculation applies only to `format: custom`. Standalone Stroke, Stableford, Match Play, Ambrose and the other full-round formats are unchanged. Segment points are derived from the underlying scores, so editing a hole automatically recalculates the segment result and overall event score.
+
+
+## V5.2 fix
+- Locks mobile navigation to vertical scrolling and removes unintended horizontal page drift/bounce.
+- Constrains premium home cards, event cards, and masthead content to the viewport width.
+- Keeps pinch zoom while preventing horizontal panning of the app shell.

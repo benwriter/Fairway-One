@@ -809,3 +809,74 @@ button,a,input,select,textarea,[role="button"],.quick-card,.learn-card,.guide-bu
   .segment-award strong{font-size:13px}
   .custom-results-title h3{font-size:25px}
 }
+
+/* V5.2 — lock the app to the vertical axis on mobile */
+html,body{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+}
+@media(max-width:940px){
+  body,.desktop-shell,.phone-shell,.app-scroll,.screen,.home-screen{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+  }
+  .app-scroll,.home-screen{
+    touch-action:pan-y pinch-zoom;
+    overscroll-behavior-x:none;
+  }
+  .home-masthead,
+  .home-brand-lockup,
+  .home-brand-copy,
+  .premium-hero,
+  .format-engine-home,
+  .premium-format-grid,
+  .premium-format-card,
+  .event-list,
+  .event-card,
+  .learn-grid,
+  .learn-card,
+  .section,
+  .section-head{
+    max-width:100%;
+    min-width:0;
+  }
+  .home-masthead>*{min-width:0}
+  .home-brand-lockup{flex:1 1 auto}
+  .home-brand-copy{flex:1 1 auto;overflow:hidden}
+  .home-brand-copy strong,
+  .home-brand-copy span{
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:clip;
+  }
+  .premium-format-grid{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  }
+  .premium-format-card{
+    width:100%;
+    grid-template-columns:50px minmax(0,1fr) 24px;
+  }
+  .premium-format-card>div,
+  .premium-format-card strong,
+  .premium-format-card small{
+    min-width:0;
+    max-width:100%;
+    overflow-wrap:anywhere;
+  }
+  .hero-actions,
+  .event-actions,
+  .toolbar,
+  .toolbar-v5{
+    min-width:0;
+    max-width:100%;
+  }
+  img,svg{max-width:100%}
+}
+@media(max-width:390px){
+  .premium-format-card{
+    grid-template-columns:45px minmax(0,1fr) 22px;
+  }
+}
