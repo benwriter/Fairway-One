@@ -1,226 +1,188 @@
-const players = [
-  { id: 'ben', name: 'Ben Writer', initials: 'BW', hcp: 23, tone: 'gold' },
-  { id: 'joel', name: 'Joel Ryan', initials: 'JR', hcp: 16, tone: 'cream' },
-  { id: 'dylan', name: 'Dylan Allen', initials: 'DA', hcp: 27, tone: 'sage' },
-  { id: 'brent', name: 'Brent Rogers', initials: 'BR', hcp: 18, tone: 'copper' }
-];
+import {
+  FORMAT_LIBRARY, formatInfo, handicapStrokes, scoreFor, teamScoreFor, holeNet, holeStableford,
+  strokeStats, stablefordStats, parBogeyStats, modifiedStablefordStats, matchPairs, matchStatus,
+  skinsStats, ensureTeams, playersForTeam, teamHoleValue, teamRoundStats, fourballMatchStatus,
+  driveCounts, primaryLeaderboard, commonScoredHoles
+} from './format-engine.js';
+import { initCloud, onCloudAuthChange, signUp, signIn, signOut, loadProfile, syncProfile, syncEvent, deleteCloudEvent, loadCloudEvents, subscribeToRound, unsubscribe } from './cloud.js';
 
-let activeTab = 'home';
-let scores = { ben: 4, joel: 5, dylan: 5, brent: 4 };
+const STORAGE_KEY='fairwayOnePrototypeV4';
+const app=document.getElementById('app');
+const modalRoot=document.getElementById('modalRoot');
+const toastRoot=document.getElementById('toastRoot');
+const navButtons=[...document.querySelectorAll('.nav-item')];
+const today=new Date();
+let ui={tab:'home',leaderboard:'primary',modal:null};
+let state=loadState();
+let cloud={session:null,status:'checking',syncing:false,subscription:null,refreshTimer:null,lastError:null};
 
-const app = document.getElementById('appContent');
-const navButtons = [...document.querySelectorAll('.nav-item')];
+function uid(prefix='id'){return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`}
+function isoDate(date=new Date()){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
+function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]))}
+function signed(v){if(Math.abs(v)<0.0001)return 'E'; return v>0?`+${Number(v).toFixed(Number.isInteger(v)?0:1)}`:Number(v).toFixed(Number.isInteger(v)?0:1)}
+function initials(name=''){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'P'}
+function formatDate(value){if(!value)return'';return new Date(`${value}T12:00:00`).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}
 
-const icon = (name) => {
-  const icons = {
-    bell: '<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>',
-    flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>',
-    target: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3m0 12v3m-9-9h3m12 0h3"/></svg>',
-    medal: '<svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="6"/><path d="m8 2 4 6 4-6M9.5 13l1.5 1.5 3-3"/></svg>',
-    users: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8m7 8a3 3 0 1 0 0-6m2 10a4 4 0 0 1 4 4v2"/></svg>',
-    shield: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>',
-    spark: '<svg viewBox="0 0 24 24"><path d="m12 3 1.4 4.2L18 9l-4.6 1.8L12 15l-1.4-4.2L6 9l4.6-1.8L12 3Zm6 11 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8L18 14Z"/></svg>',
-    crown: '<svg viewBox="0 0 24 24"><path d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Z"/></svg>'
-  };
-  return `<span class="line-icon">${icons[name] || ''}</span>`;
-};
-
-function avatar(player, small = false) {
-  return `<span class="player-avatar avatar-${player.tone} ${small ? 'avatar-small' : ''}">${player.initials}</span>`;
+function defaultHoles(){
+  const pars=[4,4,3,5,4,3,5,4,4,4,3,5,4,4,3,5,4,4];
+  const sis=[9,3,15,1,7,17,5,11,13,10,16,2,8,4,18,6,12,14];
+  const distances=[345,382,154,486,361,171,512,334,401,356,162,501,373,395,149,520,341,389];
+  return Array.from({length:18},(_,i)=>({number:i+1,par:pars[i],si:sis[i],distance:distances[i]}));
 }
-
-function topbar(title = '', eyebrow = '') {
-  return `
-    <header class="topbar">
-      <div class="brand brand-compact">
-        <span class="brand-mark"><span class="brand-flag"></span><span class="brand-pin"></span></span>
-        <span class="brand-copy"><strong>FAIRWAY</strong><span>ONE</span></span>
-      </div>
-      ${title ? `<div class="topbar-title"><span>${eyebrow}</span><strong>${title}</strong></div>` : '<div></div>'}
-      <button class="icon-button notification-button" aria-label="Notifications">${icon('bell')}<span class="notification-dot"></span></button>
-    </header>`;
+function createTeams(){return [{id:'team_a',name:'Team A',teamHcp:0},{id:'team_b',name:'Team B',teamHcp:0}]}
+function createDemoEvent(){
+  const players=[
+    {id:uid('p'),name:'Player One',hcp:18,tone:1,teamId:'team_a'},
+    {id:uid('p'),name:'Player Two',hcp:12,tone:2,teamId:'team_a'},
+    {id:uid('p'),name:'Player Three',hcp:24,tone:3,teamId:'team_b'},
+    {id:uid('p'),name:'Player Four',hcp:9,tone:4,teamId:'team_b'}
+  ];
+  const scores={}; players.forEach(p=>scores[p.id]={});
+  [[5,4,5,4],[4,5,5,4],[3,4,4,3]].forEach((set,i)=>players.forEach((p,j)=>scores[p.id][i+1]=set[j]));
+  const evt={id:uid('event'),name:'Fairway One Test Round',date:isoDate(),teeTime:'07:30',status:'live',format:'stableford',course:{name:'Prototype Golf Club',tee:'White',holes:defaultHoles()},players,teams:createTeams(),scores,teamScores:{team_a:{},team_b:{}},driveSelections:{team_a:{},team_b:{}},minDrives:3,currentHole:4,confirmedHoles:[1,2,3],createdAt:new Date().toISOString()};
+  return ensureTeams(evt);
 }
-
-function homeScreen() {
-  return `
-    <main class="screen home-screen">
-      ${topbar()}
-      <section class="welcome-row">
-        <div><p class="eyebrow">TUESDAY · 22 SEPTEMBER</p><h1>Good morning, Ben.</h1><p class="subtle">Your next round is already live.</p></div>
-        <div class="profile-medallion">BW</div>
-      </section>
-
-      <section class="hero-round-card">
-        <div class="hero-texture"></div>
-        <div class="hero-round-top"><span class="live-badge"><i></i> LIVE ROUND</span><span class="round-id">ROUND 01</span></div>
-        <div class="hero-round-main">
-          <p class="eyebrow hero-eyebrow">THE COAST GOLF CLUB</p>
-          <h2>Tuesday Four-Ball</h2>
-          <div class="round-meta"><span>${icon('flag')} Hole 7 of 18</span><span>Par 4</span><span>White tees</span></div>
-          <div class="player-stack">${players.map(p => avatar(p)).join('')}<span class="stack-label">4 playing</span></div>
-        </div>
-        <div class="hero-round-bottom">
-          <div><span class="metric-label">Your Stableford</span><strong>13 <small>pts</small></strong></div>
-          <div><span class="metric-label">Match</span><strong>1 UP</strong></div>
-          <button class="primary-button light" data-action="resume">Resume round <span>›</span></button>
-        </div>
-      </section>
-
-      <section class="section-block">
-        <div class="section-heading"><div><p class="eyebrow">LIVE COMPETITIONS</p><h3>One score. Four games.</h3></div><button class="text-button" data-action="scores">View all</button></div>
-        <div class="competition-grid">
-          <article class="mini-card"><span class="mini-icon">${icon('medal')}</span><span class="metric-label">Net Stroke</span><strong>+3</strong><small>2nd · thru 6</small></article>
-          <article class="mini-card"><span class="mini-icon">${icon('target')}</span><span class="metric-label">Stableford</span><strong>13</strong><small>1st · 1 pt clear</small></article>
-          <article class="mini-card"><span class="mini-icon">${icon('shield')}</span><span class="metric-label">Match Play</span><strong>1 UP</strong><small>vs Dylan</small></article>
-          <article class="mini-card"><span class="mini-icon">${icon('users')}</span><span class="metric-label">Team</span><strong>25</strong><small>Ben + Joel · 1st</small></article>
-        </div>
-      </section>
-
-      <section class="section-block">
-        <div class="section-heading"><div><p class="eyebrow">UP NEXT</p><h3>Upcoming events</h3></div><button class="round-add-button">+</button></div>
-        <article class="event-card">
-          <div class="event-date"><strong>24</strong><span>SEP</span></div>
-          <div class="event-copy"><span class="event-type">TEAM EVENT · 4 PLAYERS</span><h4>Coastal Cup</h4><p>The Coast Golf Club · 7:00 AM</p></div>
-          <span class="muted-chevron">›</span>
-        </article>
-      </section>
-
-      <section class="insight-card"><span class="insight-icon">${icon('spark')}</span><div><span class="eyebrow">FAIRWAY ONE INSIGHT</span><p>You score best on par 4s when receiving a stroke. Today, holes 7 and 16 are your opportunities.</p></div></section>
-    </main>`;
+function initialState(){const demo=createDemoEvent();return{profile:{name:'Golfer',homeClub:'Fairway One',hcp:18},activeEventId:demo.id,events:[demo]}}
+function loadState(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return initialState();const parsed=JSON.parse(raw);if(!parsed?.events)return initialState();parsed.events.forEach(e=>{e.format ||= 'stableford'; ensureTeams(e)});return parsed}catch{return initialState()}}
+function saveState(show=false){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));if(show)toast(cloud.session?'Saved locally · cloud sync queued':'Saved on this device')}
+function cloudLabel(){if(cloud.status==='checking')return 'Checking cloud';if(cloud.syncing)return 'Syncing…';if(cloud.session)return 'Cloud live';return 'Saved locally'}
+function mergeCloudEvents(remoteEvents){
+  const localOnly=state.events.filter(e=>!e.cloud?.eventId);
+  state.events=[...remoteEvents,...localOnly];
+  if(!state.events.some(e=>e.id===state.activeEventId))state.activeEventId=state.events[0]?.id||null;
+  state.events.forEach(e=>ensureTeams(e));
+  saveState();
 }
-
-function stablefordFor(player) {
-  const par = 4;
-  const stroke = player.hcp >= 7 ? 1 : 0;
-  const net = scores[player.id] - stroke;
-  return Math.max(0, 2 + (par - net));
+async function refreshCloud({silent=false}={}){
+  if(!cloud.session)return;
+  try{
+    cloud.status='connected';
+    const [profile,events]=await Promise.all([loadProfile(),loadCloudEvents()]);
+    if(profile){
+      state.profile.name=profile.display_name||state.profile.name;
+      state.profile.homeClub=profile.home_club||state.profile.homeClub;
+      state.profile.hcp=Number(profile.handicap_index??state.profile.hcp);
+    }
+    mergeCloudEvents(events);
+    await subscribeActiveRound();
+    render();
+    if(!silent)toast('Cloud data refreshed.');
+  }catch(err){cloud.lastError=err;cloud.status='error';if(!silent)toast(`Cloud refresh failed: ${escapeHtml(err.message||'Unknown error')}`)}
 }
-
-function playScreen() {
-  const rows = players.map(player => {
-    const score = scores[player.id];
-    const diff = score - 4;
-    const scoreClass = diff < 0 ? 'under' : diff > 0 ? 'over' : 'par';
-    const label = diff === 0 ? 'PAR' : diff > 0 ? `+${diff}` : `${diff}`;
-    return `
-      <article class="score-row">
-        ${avatar(player)}
-        <div class="score-player-info"><strong>${player.name}</strong><span>HCP ${player.hcp} · ${stablefordFor(player)} Stableford pts</span></div>
-        <div class="score-control">
-          <button data-score-player="${player.id}" data-delta="-1" aria-label="Decrease ${player.name} score">−</button>
-          <div class="score-value ${scoreClass}"><strong>${score}</strong><span>${label}</span></div>
-          <button data-score-player="${player.id}" data-delta="1" aria-label="Increase ${player.name} score">+</button>
-        </div>
-      </article>`;
-  }).join('');
-
-  const benPts = 13 + stablefordFor(players[0]) - 2;
-  const teamPts = 25 + stablefordFor(players[0]) + stablefordFor(players[1]) - 4;
-  const match = scores.ben <= scores.dylan ? 'Ben 1 UP' : 'All square';
-
-  return `
-    <main class="screen play-screen">
-      ${topbar('Live scoring', 'THE COAST GOLF CLUB')}
-      <section class="hole-header-card">
-        <div class="hole-nav"><button class="hole-arrow">‹</button><span>HOLE</span><button class="hole-arrow">›</button></div>
-        <div class="hole-number">7</div>
-        <div class="hole-specs"><div><span>PAR</span><strong>4</strong></div><div><span>INDEX</span><strong>7</strong></div><div><span>METRES</span><strong>352</strong></div></div>
-        <div class="stroke-note"><span class="stroke-dot"></span> All four players receive one handicap stroke</div>
-      </section>
-
-      <section class="score-panel">
-        <div class="score-panel-heading"><div><p class="eyebrow">GROUP 1</p><h2>Enter scores</h2></div><span class="sync-pill"><i></i> Live sync</span></div>
-        <div class="score-list">${rows}</div>
-      </section>
-
-      <section class="live-impact-card">
-        <div class="impact-heading"><span>◌ Live competition impact</span><span class="calculated-pill">AUTO</span></div>
-        <div class="impact-grid">
-          <div><span>Stroke</span><strong>Ben +3</strong><small>2nd overall</small></div>
-          <div><span>Stableford</span><strong>Ben ${benPts} pts</strong><small>1st overall</small></div>
-          <div><span>Match</span><strong>${match}</strong><small>vs Dylan</small></div>
-          <div><span>Team</span><strong>${teamPts} pts</strong><small>Ben + Joel</small></div>
-        </div>
-      </section>
-      <button class="primary-button full-button">Confirm hole 7 <span>›</span></button>
-      <p class="helper-copy">Prototype mode · scores are stored on this device only.</p>
-    </main>`;
-}
-
-function eventsScreen() {
-  return `
-    <main class="screen">
-      ${topbar('Events', 'FAIRWAY ONE')}
-      <section class="page-intro"><p class="eyebrow">YOUR GOLF CALENDAR</p><h1>Every event, one place.</h1><p>Create anything from a four-player social round to a full-field tournament.</p></section>
-      <button class="primary-button full-button">+ Create new event</button>
-      <section class="event-list">
-        <article class="large-event-card featured"><span class="status-pill"><i></i> LIVE</span><h3>Tuesday Four-Ball</h3><p>The Coast Golf Club</p><div class="event-details"><span>4 players</span><span>4 competitions</span><span>Hole 7</span></div></article>
-        <article class="large-event-card"><span class="eyebrow">THU · 24 SEP</span><h3>Coastal Cup</h3><p>The Coast Golf Club · 7:00 AM</p><div class="event-details"><span>Team event</span><span>4 players</span><span>Mixed format</span></div></article>
-        <article class="large-event-card"><span class="eyebrow">SAT · 10 OCT</span><h3>Wyong Saturday</h3><p>Wyong Golf Club · 8:12 AM</p><div class="event-details"><span>Stableford</span><span>Open field</span></div></article>
-      </section>
-    </main>`;
-}
-
-function leaderboardScreen() {
-  const ranking = [...players].sort((a, b) => scores[a.id] - scores[b.id]);
-  const rows = ranking.map((p, i) => `
-    <div class="leader-row">
-      <span class="position ${i === 0 ? 'first' : ''}">${i + 1}</span>
-      <div class="leader-player">${avatar(p, true)}<div><strong>${p.name}</strong><span>HCP ${p.hcp}</span></div></div>
-      <span class="thru">6</span><strong class="leader-score">${14 - (scores[p.id] - 4)}</strong>
-    </div>`).join('');
-
-  return `
-    <main class="screen">
-      ${topbar('Live scores', 'TUESDAY FOUR-BALL')}
-      <section class="page-intro compact-intro"><p class="eyebrow">MULTI-COMPETITION</p><h1>Leaderboard</h1></section>
-      <div class="segment-tabs"><button class="selected">Stableford</button><button>Stroke</button><button>Match</button><button>Teams</button></div>
-      <section class="leaderboard-card"><div class="leaderboard-head"><span>POS</span><span>PLAYER</span><span>THRU</span><span>SCORE</span></div>${rows}</section>
-      <section class="match-centre"><div class="section-heading"><div><p class="eyebrow">MATCH CENTRE</p><h3>Head-to-head</h3></div></div><article class="match-card"><div><strong>Ben</strong><span>vs Dylan</span></div><div class="match-status">BEN 1 UP</div><div><strong>Joel</strong><span>vs Brent</span></div></article></section>
-    </main>`;
-}
-
-function profileScreen() {
-  return `
-    <main class="screen">
-      ${topbar('Profile', 'FAIRWAY ONE')}
-      <section class="profile-hero"><div class="profile-big-avatar">BW</div><div><p class="eyebrow">PLAYER PROFILE</p><h1>Ben Writer</h1><p>Wyong Golf Club · GA 23</p></div></section>
-      <section class="profile-stat-grid"><article><span>Rounds</span><strong>18</strong></article><article><span>Wins</span><strong>4</strong></article><article><span>Best Stableford</span><strong>39</strong></article><article><span>Match record</span><strong>8–5–1</strong></article></section>
-      <section class="achievement-card"><span class="achievement-icon">${icon('crown')}</span><div><p class="eyebrow">LATEST ACHIEVEMENT</p><h3>Match Play Closer</h3><p>Won three consecutive head-to-head matches.</p></div></section>
-      <section class="form-card"><div class="section-heading"><div><p class="eyebrow">CURRENT FORM</p><h3>Last five rounds</h3></div></div><div class="form-bars"><span style="height:44%"></span><span style="height:62%"></span><span style="height:52%"></span><span style="height:78%"></span><span class="best" style="height:92%"></span></div><div class="form-labels"><span>31</span><span>34</span><span>33</span><span>37</span><span>39</span></div></section>
-    </main>`;
-}
-
-function render() {
-  const screens = {
-    home: homeScreen,
-    play: playScreen,
-    events: eventsScreen,
-    leaderboard: leaderboardScreen,
-    profile: profileScreen
-  };
-  app.innerHTML = screens[activeTab]();
-  app.scrollTop = 0;
-
-  navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === activeTab));
-
-  document.querySelector('[data-action="resume"]')?.addEventListener('click', () => switchTab('play'));
-  document.querySelector('[data-action="scores"]')?.addEventListener('click', () => switchTab('leaderboard'));
-
-  document.querySelectorAll('[data-score-player]').forEach(button => {
-    button.addEventListener('click', () => {
-      const player = button.dataset.scorePlayer;
-      const delta = Number(button.dataset.delta);
-      scores[player] = Math.max(1, Math.min(12, scores[player] + delta));
-      render();
-    });
+async function subscribeActiveRound(){
+  if(cloud.subscription){await unsubscribe(cloud.subscription);cloud.subscription=null}
+  const evt=activeEvent();
+  if(!cloud.session||!evt?.cloud?.roundId)return;
+  cloud.subscription=subscribeToRound(evt.cloud.roundId,()=>{
+    clearTimeout(cloud.refreshTimer);
+    cloud.refreshTimer=setTimeout(()=>refreshCloud({silent:true}),350);
   });
 }
-
-function switchTab(tab) {
-  activeTab = tab;
-  render();
+let cloudSyncTimer=null;
+function queueCloudSync(event,{structure=false,immediate=false}={}){
+  if(!cloud.session||!event)return;
+  clearTimeout(cloudSyncTimer);
+  const run=async()=>{
+    if(cloud.syncing)return;
+    cloud.syncing=true;cloud.status='connected';render();
+    try{
+      await syncEvent(event,state.profile,{structure});
+      saveState();
+      cloud.lastError=null;
+      await subscribeActiveRound();
+    }catch(err){cloud.lastError=err;cloud.status='error';toast(`Cloud sync failed: ${escapeHtml(err.message||'Unknown error')}`)}
+    finally{cloud.syncing=false;render()}
+  };
+  if(immediate)run();else cloudSyncTimer=setTimeout(run,650);
 }
+async function bootCloud(){
+  try{
+    cloud.session=await initCloud();
+    cloud.status=cloud.session?'connected':'local';
+    if(cloud.session)await refreshCloud({silent:true});
+  }catch(err){cloud.lastError=err;cloud.status='error'}
+  render();
+  onCloudAuthChange(async session=>{
+    const changed=cloud.session?.user?.id!==session?.user?.id;
+    cloud.session=session;cloud.status=session?'connected':'local';
+    if(session&&changed)await refreshCloud({silent:true});
+    if(!session&&cloud.subscription){await unsubscribe(cloud.subscription);cloud.subscription=null}
+    render();
+  });
+}
+function activeEvent(){return state.events.find(e=>e.id===state.activeEventId)||null}
+function eventProgress(event){return commonScoredHoles(event).length}
 
-navButtons.forEach(button => button.addEventListener('click', () => switchTab(button.dataset.tab)));
+function icon(name){const icons={bell:'<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>',flag:'<svg viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>',target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v4m0 12v4m-9-9h3m12 0h3"/></svg>',medal:'<svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="6"/><path d="m8 2 4 6 4-6M9.5 13l1.5 1.5 3-3"/></svg>',users:'<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8m7 8a3 3 0 1 0 0-6m2 10a4 4 0 0 1 4 4v2"/></svg>',shield:'<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>',spark:'<svg viewBox="0 0 24 24"><path d="m12 3 1.4 4.2L18 9l-4.6 1.8L12 15l-1.4-4.2L6 9l4.6-1.8L12 3Zm6 11 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8L18 14Z"/></svg>'};return `<span class="line-icon">${icons[name]||''}</span>`}
+function topbar(title='',eyebrow=''){return `<header class="topbar"><div class="brand"><span class="brand-mark"><span class="brand-flag"></span><span class="brand-pin"></span></span><span class="brand-copy"><strong>FAIRWAY</strong><span>ONE</span></span></div>${title?`<div class="topbar-title"><span>${escapeHtml(eyebrow)}</span><strong>${escapeHtml(title)}</strong></div>`:'<div></div>'}<button class="icon-button" data-action="about" aria-label="Prototype information">${icon('bell')}</button></header>`}
+function avatar(p,small=false){return `<span class="avatar tone${p.tone||1} ${small?'small':''}">${escapeHtml(initials(p.name))}</span>`}
+
+function formatHeroScore(event){const info=formatInfo(event.format);const board=primaryLeaderboard(event);if(!board.length)return '—';const first=board[0];if(first.type==='player'){
+  if(event.format==='stableford')return `${first.stats.points} pts`;
+  if(event.format==='par_bogey'||event.format==='modified_stableford')return signed(first.stats.points);
+  if(event.format==='skins')return `${first.stats.skins} skins`;
+  if(event.format==='stroke')return signed(first.stats.toPar);
+  return 'Live';
+}
+if(first.type==='team'){if(event.format==='fourball_stableford')return `${first.stats.points||0} pts`;return `${first.team.name}`}
+if(first.type==='match'||first.type==='team_match')return first.status.label;return 'Live'}
+
+function homeScreen(){const event=activeEvent();const day=today.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'}).toUpperCase();const hero=event?`<section class="hero-card"><div class="hero-top"><span class="live-pill"><i></i>${event.status==='complete'?'Complete':'Live round'}</span><span class="hero-round-id">${eventProgress(event)}/18 COMPLETE</span></div><div class="hero-main"><p class="eyebrow">${escapeHtml(formatInfo(event.format).name)}</p><h2>${escapeHtml(event.name)}</h2><p>${escapeHtml(event.course.name)} · ${formatDate(event.date)} · ${escapeHtml(event.teeTime)}</p><div class="hero-meta"><span>${event.players.length} players</span><span>${(event.teams||[]).filter(t=>playersForTeam(event,t.id).length).length} teams</span><span>${escapeHtml(formatInfo(event.format).category)}</span></div></div><div class="hero-bottom"><div class="hero-stat"><span>Leader preview</span><strong>${escapeHtml(formatHeroScore(event))}</strong></div><div class="hero-stat"><span>Current hole</span><strong>${event.currentHole||1}</strong></div><div class="hero-actions"><button class="primary-btn light" data-action="resume">Resume round</button><button class="secondary-btn small-btn" data-action="event-edit" data-event-id="${event.id}">Edit</button></div></div></section>`:`<section class="empty-card"><div class="empty-icon">⛳</div><h3>No active round</h3><p>Create a Fairway One event to begin.</p><button class="primary-btn" data-action="create-event">Create event</button></section>`;
+return `<main class="screen">${topbar()}<section class="welcome"><p class="eyebrow">${day}</p><h1>Good morning, ${escapeHtml(state.profile.name)}.</h1><p class="subtle">Choose the game. Enter the score. Let Fairway One do the maths.</p></section>${hero}<section class="section"><div class="section-head"><div><p class="eyebrow">FORMAT ENGINE</p><h3>16 ways to play</h3></div><button class="text-btn" data-action="open-game-guide">View all</button></div><div class="quick-grid"><article class="quick-card"><div class="icon-wrap">${icon('target')}</div><span>Individual</span><strong>6</strong><small>Stroke, Stableford, Match + more</small></article><article class="quick-card"><div class="icon-wrap">${icon('users')}</div><span>Team</span><strong>6</strong><small>Four-Ball, Best Ball, Aggregate</small></article><article class="quick-card"><div class="icon-wrap">${icon('flag')}</div><span>Shared ball</span><strong>4</strong><small>Ambrose, Foursomes, Greensomes</small></article><article class="quick-card"><div class="icon-wrap">${icon('spark')}</div><span>Future builder</span><strong>18</strong><small>Any holes, any format</small></article></div></section><section class="section"><div class="section-head"><div><p class="eyebrow">YOUR EVENTS</p><h3>Recent rounds</h3></div><button class="text-btn" data-action="create-event">+ New event</button></div>${renderEventList(state.events.slice(0,3))}</section><section class="section"><div class="section-head"><div><p class="eyebrow">LEARN</p><h3>Know the game</h3></div></div><div class="learn-grid"><button class="learn-card" data-action="open-game-guide"><span class="learn-icon">${icon('target')}</span><strong>How to play</strong><small>Guide to every format currently in the prototype.</small><b>Open guide →</b></button><button class="learn-card" data-action="open-rules"><span class="learn-icon">${icon('shield')}</span><strong>Rules of Golf</strong><small>Quick reference plus official Golf Australia resources.</small><b>Open rules →</b></button></div></section></main>`}
+
+function renderEventList(events){if(!events.length)return '<div class="empty-card"><p>No events yet.</p></div>';return `<div class="event-list">${events.map(e=>`<article class="event-card ${e.status==='live'?'live':''}"><div class="card-row"><span class="status-pill"><i></i>${e.status==='complete'?'Complete':'Live'}</span><span class="eyebrow">${formatDate(e.date)}</span></div><h4>${escapeHtml(e.name)}</h4><p>${escapeHtml(e.course.name)} · ${escapeHtml(e.teeTime)}</p><div class="event-tags"><span>${escapeHtml(formatInfo(e.format).name)}</span><span>${e.players.length} players</span>${formatInfo(e.format).team?'<span>Teams</span>':''}</div><div class="event-actions"><button class="${e.status==='live'?'primary-btn gold':'secondary-btn'} small-btn" data-action="activate-event" data-event-id="${e.id}">${e.status==='live'?'Play':'Open'}</button><button class="ghost-btn small-btn" data-action="event-edit" data-event-id="${e.id}">Edit</button></div></article>`).join('')}</div>`}
+
+function individualScoreRows(event,holeNo){const hole=event.course.holes[holeNo-1];return event.players.map(p=>{const score=scoreFor(event,p.id,holeNo);const net=holeNet(event,p,holeNo);const pts=holeStableford(event,p,holeNo);const rel=score==null?null:score-hole.par;const cls=rel==null?'empty':rel<0?'under':rel>0?'over':'';return `<article class="score-row">${avatar(p)}<div class="player-copy"><strong>${escapeHtml(p.name)}</strong><span>HCP ${p.hcp} · ${handicapStrokes(p.hcp,hole.si)} shot${handicapStrokes(p.hcp,hole.si)===1?'':'s'} here${net!=null?` · Net ${net} · ${pts} pts`:''}</span>${formatInfo(event.format).team?`<small class="team-chip">${escapeHtml(event.teams.find(t=>t.id===p.teamId)?.name||'Team')}</small>`:''}</div><div class="score-control"><button data-score="minus" data-player="${p.id}">−</button><button class="score-value ${cls}" data-score="par" data-player="${p.id}"><strong>${score==null?'—':score}</strong><span>${score==null?'Tap':rel===0?'Par':rel>0?`+${rel}`:String(rel)}</span></button><button data-score="plus" data-player="${p.id}">+</button><button class="clear-score" data-score="clear" data-player="${p.id}">×</button></div></article>`}).join('')}
+
+function teamScoreRows(event,holeNo){return event.teams.filter(t=>playersForTeam(event,t.id).length).map(team=>{const score=teamScoreFor(event,team.id,holeNo);const members=playersForTeam(event,team.id);const drive=formatInfo(event.format).tracksDrive?`<div class="drive-select"><label>Selected drive</label><select data-drive-team="${team.id}"><option value="">Choose player</option>${members.map(p=>`<option value="${p.id}" ${event.driveSelections?.[team.id]?.[holeNo]===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>`:'';return `<article class="team-score-card"><div class="team-score-top"><div><span class="eyebrow">${escapeHtml(team.name)}</span><h3>${members.map(p=>escapeHtml(p.name.split(' ')[0])).join(' · ')}</h3><small>Team HCP ${Number(team.teamHcp||0).toFixed(1)}</small></div><div class="score-control team-control"><button data-team-score="minus" data-team="${team.id}">−</button><button class="score-value" data-team-score="par" data-team="${team.id}"><strong>${score==null?'—':score}</strong><span>Team</span></button><button data-team-score="plus" data-team="${team.id}">+</button><button class="clear-score" data-team-score="clear" data-team="${team.id}">×</button></div></div>${drive}${event.format==='ambrose'?renderDriveRequirement(event,team):''}</article>`}).join('')}
+function renderDriveRequirement(event,team){const counts=driveCounts(event,team);const req=Number(event.minDrives)||0;return `<div class="drive-counts">${playersForTeam(event,team.id).map(p=>`<span class="${req&&counts[p.id]>=req?'done':''}">${escapeHtml(p.name.split(' ')[0])}: ${counts[p.id]}/${req||'—'}</span>`).join('')}</div>`}
+
+function playScreen(){const event=activeEvent();if(!event)return `<main class="screen">${topbar('Play','FAIRWAY ONE')}<section class="page-intro"><p class="eyebrow">LIVE SCORING</p><h1 class="page-title">Nothing to score yet.</h1><p class="body-copy">Create an event first.</p></section><button class="primary-btn full" data-action="create-event">Create event</button></main>`;const holeNo=Math.min(18,Math.max(1,event.currentHole||1));const hole=event.course.holes[holeNo-1];const info=formatInfo(event.format);const confirmed=event.confirmedHoles.includes(holeNo);const entry=info.entry==='team'?teamScoreRows(event,holeNo):individualScoreRows(event,holeNo);return `<main class="screen">${topbar('Live scoring',event.course.name)}<section class="play-header"><div class="hole-nav"><button data-action="prev-hole">‹</button><div class="hole-centre"><span>Hole</span><strong>${holeNo}</strong></div><button data-action="next-hole">›</button></div><div class="hole-info"><div><span>Par</span><strong>${hole.par}</strong></div><div><span>SI</span><strong>${hole.si}</strong></div><div><span>Metres</span><strong>${hole.distance||'—'}</strong></div><div><span>Status</span><strong>${confirmed?'✓':'—'}</strong></div></div><div class="format-banner"><div><span>${escapeHtml(info.category)}</span><strong>${escapeHtml(info.name)}</strong></div><button data-action="format-info">How it works</button></div></section><section class="score-section"><div class="score-head"><div><p class="eyebrow">${escapeHtml(event.name)}</p><h2>${info.entry==='team'?'Enter team scores':'Enter player scores'}</h2></div><span class="sync-pill"><i></i> ${escapeHtml(cloudLabel())}</span></div><div class="score-list">${entry}</div>${info.tracksDrive&&info.entry==='individual'?renderDriveSelectors(event,holeNo):''}</section>${renderLiveImpact(event)}<div class="hole-actions"><button class="secondary-btn" data-action="save-only">Save</button><button class="primary-btn" data-action="confirm-hole">${confirmed?'Update & next hole':`Confirm hole ${holeNo}`}</button></div><p class="muted-note">V4 keeps every format as a complete round. Mixed-hole format building comes later, using the same stored hole data.</p></main>`}
+function renderDriveSelectors(event,holeNo){return `<div class="drive-selector-stack"><p class="eyebrow">SELECTED DRIVE</p>${event.teams.filter(t=>playersForTeam(event,t.id).length).map(t=>`<div class="drive-select"><label>${escapeHtml(t.name)}</label><select data-drive-team="${t.id}"><option value="">Choose player</option>${playersForTeam(event,t.id).map(p=>`<option value="${p.id}" ${event.driveSelections?.[t.id]?.[holeNo]===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>`).join('')}</div>`}
+function renderLiveImpact(event){const board=primaryLeaderboard(event);let leader='—';if(board[0]?.type==='player'){const x=board[0];leader=event.format==='stableford'?`${x.player.name.split(' ')[0]} ${x.stats.points} pts`:event.format==='skins'?`${x.player.name.split(' ')[0]} ${x.stats.skins} skins`:event.format==='par_bogey'||event.format==='modified_stableford'?`${x.player.name.split(' ')[0]} ${signed(x.stats.points)}`:event.format==='stroke'?`${x.player.name.split(' ')[0]} ${signed(x.stats.toPar)}`:'Live'}else if(board[0]?.type==='team')leader=`${board[0].team.name}`;else if(board[0]?.status)leader=board[0].status.label;return `<section class="mini-impact"><div class="card-row"><span class="eyebrow">LIVE IMPACT</span><span class="status-pill">AUTO</span></div><div class="impact-grid"><div class="impact-item"><span>Format</span><strong>${escapeHtml(formatInfo(event.format).short)}</strong><small>Primary competition</small></div><div class="impact-item"><span>Leader</span><strong>${escapeHtml(leader)}</strong><small>Current standing</small></div><div class="impact-item"><span>Through</span><strong>${eventProgress(event)}</strong><small>Completed holes</small></div><div class="impact-item"><span>Entries</span><strong>${formatInfo(event.format).entry==='team'?event.teams.filter(t=>playersForTeam(event,t.id).length).length:event.players.length}</strong><small>${formatInfo(event.format).entry==='team'?'teams':'players'}</small></div></div></section>`}
+
+function eventsScreen(){return `<main class="screen">${topbar('Events','FAIRWAY ONE')}<section class="page-intro"><p class="eyebrow">COMPETITION BUILDER</p><h1 class="page-title">Pick the game first.</h1><p class="body-copy">V4 focuses on making complete 18-hole formats work properly. The custom hole-by-hole builder comes after the format engine is proven.</p></section><div class="toolbar"><button class="primary-btn" data-action="create-event">+ Create new event</button><button class="secondary-btn" data-action="reset-demo">Reset</button></div>${renderEventList(state.events)}</main>`}
+
+function comparisonTabs(event){const info=formatInfo(event.format);if(info.entry==='team')return [['primary',info.short]];const tabs=[['primary',info.short],['stroke','Stroke'],['stableford','Stableford'],['match','Match']];return tabs.filter((x,i,a)=>a.findIndex(y=>y[0]===x[0])===i)}
+function leaderboardScreen(){const event=activeEvent();if(!event)return `<main class="screen">${topbar('Scores','FAIRWAY ONE')}<section class="page-intro"><h1 class="page-title">No active event.</h1></section></main>`;const tabs=comparisonTabs(event);if(!tabs.some(t=>t[0]===ui.leaderboard))ui.leaderboard='primary';let body='';if(ui.leaderboard==='primary')body=renderPrimaryLeaderboard(event);if(ui.leaderboard==='stroke')body=renderIndividualBoard(event,'stroke');if(ui.leaderboard==='stableford')body=renderIndividualBoard(event,'stableford');if(ui.leaderboard==='match')body=renderMatchBoard(event);return `<main class="screen">${topbar('Live scores',event.name)}<section class="page-intro"><p class="eyebrow">${eventProgress(event)}/18 COMPLETE</p><h1 class="page-title">Leaderboard</h1><p class="body-copy">${escapeHtml(event.course.name)} · ${escapeHtml(formatInfo(event.format).name)}</p></section><div class="segment-tabs">${tabs.map(([k,l])=>`<button class="${ui.leaderboard===k?'active':''}" data-leader-tab="${k}">${escapeHtml(l)}</button>`).join('')}</div>${body}</main>`}
+function renderIndividualBoard(event,mode){const entries=event.players.map(p=>({player:p,stats:mode==='stableford'?stablefordStats(event,p):strokeStats(event,p)})).sort((a,b)=>mode==='stableford'?b.stats.points-a.stats.points:a.stats.toPar-b.stats.toPar);return `<section class="leaderboard"><div class="leader-head"><span>Pos</span><span>Player</span><span>Thru</span><span>Score</span></div>${entries.map((e,i)=>`<div class="leader-row"><span class="pos ${i===0?'first':''}">${i+1}</span><div class="leader-person">${avatar(e.player,true)}<div><strong>${escapeHtml(e.player.name)}</strong><span>HCP ${e.player.hcp}</span></div></div><span class="leader-thru">${e.stats.holes}</span><strong class="leader-score">${mode==='stableford'?`${e.stats.points} pts`:signed(e.stats.toPar)}</strong></div>`).join('')}</section>`}
+function renderMatchBoard(event){return `<div class="match-list">${matchPairs(event).map(([a,b])=>{const s=matchStatus(event,a,b);return `<article class="match-card"><div><strong>${escapeHtml(a.name)}</strong><span>HCP ${a.hcp}</span></div><div class="match-result">${escapeHtml(s.label)}<span>${s.holes} holes</span></div><div><strong>${escapeHtml(b.name)}</strong><span>HCP ${b.hcp}</span></div></article>`}).join('')||'<div class="empty-card">Need two players.</div>'}</div>`}
+function renderPrimaryLeaderboard(event){const fmt=event.format;const board=primaryLeaderboard(event);if(fmt==='match')return renderMatchBoard(event);if(fmt==='fourball_match')return `<div class="match-list"><article class="match-card"><div><strong>${escapeHtml(event.teams[0]?.name||'Team A')}</strong></div><div class="match-result">${escapeHtml(fourballMatchStatus(event).label)}<span>${fourballMatchStatus(event).holes} holes</span></div><div><strong>${escapeHtml(event.teams[1]?.name||'Team B')}</strong></div></article></div>`;if(board[0]?.type==='player')return `<section class="leaderboard"><div class="leader-head"><span>Pos</span><span>Player</span><span>Thru</span><span>Score</span></div>${board.map((e,i)=>{let score='';if(fmt==='stroke')score=signed(e.stats.toPar);if(fmt==='stableford')score=`${e.stats.points} pts`;if(fmt==='par_bogey'||fmt==='modified_stableford')score=signed(e.stats.points);if(fmt==='skins')score=`${e.stats.skins} skins`;return `<div class="leader-row"><span class="pos ${i===0?'first':''}">${i+1}</span><div class="leader-person">${avatar(e.player,true)}<div><strong>${escapeHtml(e.player.name)}</strong><span>HCP ${e.player.hcp}</span></div></div><span class="leader-thru">${e.stats.holes}</span><strong class="leader-score">${score}</strong></div>`}).join('')}</section>`;return `<div class="team-board">${board.map((e,i)=>{const stats=e.stats;const score=fmt==='fourball_stableford'?`${stats.points||0} pts`:formatInfo(fmt).entry==='team'?`${stats.gross||0} gross · ${stats.net!=null?signed(stats.toPar):'—'}`:signed(stats.toPar||0);return `<article class="team-leader-card"><div class="team-rank">${i+1}</div><div><span class="eyebrow">${escapeHtml(e.team.name)}</span><h3>${playersForTeam(event,e.team.id).map(p=>escapeHtml(p.name.split(' ')[0])).join(' · ')}</h3><p>${stats.holes||0} holes · ${score}</p>${fmt==='ambrose'?renderDriveRequirement(event,e.team):''}</div></article>`}).join('')}</div>`}
+
+function profileScreen(){const signed=!!cloud.session;const email=cloud.session?.user?.email||'';return `<main class="screen">${topbar('More','FAIRWAY ONE')}<section class="profile-hero"><div class="profile-avatar">${escapeHtml(initials(state.profile.name))}</div><div><p class="eyebrow">FAIRWAY ONE PROFILE</p><h1>${escapeHtml(state.profile.name)}</h1><p>${escapeHtml(state.profile.homeClub)} · HCP ${state.profile.hcp}</p></div></section><section class="stat-grid"><article class="stat-card"><span>Events</span><strong>${state.events.length}</strong></article><article class="stat-card"><span>Formats</span><strong>${Object.keys(FORMAT_LIBRARY).length}</strong></article><article class="stat-card"><span>Playable now</span><strong>16</strong></article><article class="stat-card"><span>Backend</span><strong>${signed?'Live':'Local'}</strong></article></section><section class="section"><div class="section-head"><div><p class="eyebrow">FAIRWAY ONE CLOUD</p><h3>${signed?'Connected':'Connect your account'}</h3></div><span class="status-pill"><i></i>${escapeHtml(cloudLabel())}</span></div><div class="event-card cloud-card">${signed?`<p><strong>${escapeHtml(email)}</strong></p><p class="muted-note">Events and scores can now sync through Fairway One's dedicated Supabase backend. Sign into the same account on another device to test live cloud scoring.</p><div class="event-actions"><button class="primary-btn small-btn" data-action="cloud-sync">Sync active event</button><button class="secondary-btn small-btn" data-action="cloud-refresh">Refresh cloud</button><button class="ghost-btn small-btn" data-action="cloud-signout">Sign out</button></div>`:`<p class="muted-note">Create or sign into a Fairway One account to store events in the cloud. Local scoring continues to work even when you are signed out.</p><div class="event-actions"><button class="primary-btn small-btn" data-action="cloud-auth">Sign in / create account</button></div>`}${cloud.lastError?`<p class="cloud-error">Last cloud error: ${escapeHtml(cloud.lastError.message||'Unknown error')}</p>`:''}</div></section><section class="section"><div class="section-head"><div><p class="eyebrow">LEARNING CENTRE</p><h3>Formats & rules</h3></div></div><div class="learn-grid"><button class="learn-card" data-action="open-game-guide"><span class="learn-icon">${icon('target')}</span><strong>How to play</strong><small>Every format in the current Fairway One engine.</small><b>View formats →</b></button><button class="learn-card" data-action="open-rules"><span class="learn-icon">${icon('shield')}</span><strong>Rules of Golf</strong><small>Quick guide plus official Golf Australia links.</small><b>View rules →</b></button></div></section><section class="section"><div class="section-head"><div><p class="eyebrow">SETTINGS</p><h3>Prototype controls</h3></div></div><div class="event-card"><div class="event-actions"><button class="secondary-btn small-btn" data-action="edit-profile">Edit profile</button><button class="ghost-btn small-btn" data-action="export-data">Export JSON</button></div><div class="divider"></div><p class="muted-note">V4 is local-first with optional cloud sync. Fairway One has its own Supabase project and remains completely separate from Writer Cup.</p></div></section></main>`}
+
+function render(){const screens={home:homeScreen,play:playScreen,events:eventsScreen,leaderboard:leaderboardScreen,profile:profileScreen};app.innerHTML=(screens[ui.tab]||homeScreen)();navButtons.forEach(b=>b.classList.toggle('active',b.dataset.tab===ui.tab));bindActions()}
+function switchTab(tab){ui.tab=tab;app.scrollTop=0;render()}
+function bindActions(){document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',handleAction));document.querySelectorAll('[data-score]').forEach(el=>el.addEventListener('click',handlePlayerScore));document.querySelectorAll('[data-team-score]').forEach(el=>el.addEventListener('click',handleTeamScore));document.querySelectorAll('[data-drive-team]').forEach(el=>el.addEventListener('change',handleDriveSelection));document.querySelectorAll('[data-leader-tab]').forEach(el=>el.addEventListener('click',()=>{ui.leaderboard=el.dataset.leaderTab;render()}))}
+async function handleAction(e){const el=e.currentTarget,a=el.dataset.action;if(a==='resume'){await subscribeActiveRound();return switchTab('play')}if(a==='create-event')return openEventModal();if(a==='event-edit')return openEventModal(el.dataset.eventId);if(a==='activate-event'){const evt=state.events.find(x=>x.id===el.dataset.eventId);if(!evt)return;state.activeEventId=evt.id;if(evt.status!=='complete')evt.status='live';saveState();await subscribeActiveRound();return switchTab('play')}if(a==='prev-hole'||a==='next-hole'){const evt=activeEvent();if(!evt)return;evt.currentHole=Math.min(18,Math.max(1,(evt.currentHole||1)+(a==='next-hole'?1:-1)));saveState();queueCloudSync(evt);return render()}if(a==='save-only'){saveState(true);queueCloudSync(activeEvent(),{immediate:true});return}if(a==='confirm-hole')return confirmCurrentHole();if(a==='open-game-guide')return openGameGuideModal();if(a==='open-rules')return openRulesModal();if(a==='format-info')return openSingleFormatModal(activeEvent()?.format);if(a==='edit-profile')return openProfileModal();if(a==='export-data')return exportData();if(a==='reset-demo')return resetPrototype();if(a==='cloud-auth')return openCloudAuthModal();if(a==='cloud-refresh')return refreshCloud();if(a==='cloud-sync'){const evt=activeEvent();if(!evt)return toast('No active event to sync.');queueCloudSync(evt,{structure:true,immediate:true});return toast('Cloud sync started.')}if(a==='cloud-signout'){await signOut();toast('Signed out. Local scoring still works.');return}if(a==='about')return toast('<strong>Fairway One V4</strong> · cloud-connected prototype')}
+function handlePlayerScore(e){const evt=activeEvent();if(!evt)return;const pid=e.currentTarget.dataset.player,h=evt.currentHole||1,action=e.currentTarget.dataset.score;const par=evt.course.holes[h-1].par;let v=scoreFor(evt,pid,h);if(action==='clear')v=null;else if(action==='par')v=v==null?par:v;else if(action==='plus')v=(v==null?par:v)+1;else if(action==='minus')v=Math.max(1,(v==null?par:v)-1);evt.scores[pid] ||= {};if(v==null)delete evt.scores[pid][h];else evt.scores[pid][h]=v;evt.confirmedHoles=evt.confirmedHoles.filter(x=>x!==h);saveState();queueCloudSync(evt);render()}
+function handleTeamScore(e){const evt=activeEvent();if(!evt)return;const tid=e.currentTarget.dataset.team,h=evt.currentHole||1,action=e.currentTarget.dataset.teamScore;const par=evt.course.holes[h-1].par;let v=teamScoreFor(evt,tid,h);if(action==='clear')v=null;else if(action==='par')v=v==null?par:v;else if(action==='plus')v=(v==null?par:v)+1;else if(action==='minus')v=Math.max(1,(v==null?par:v)-1);evt.teamScores[tid] ||= {};if(v==null)delete evt.teamScores[tid][h];else evt.teamScores[tid][h]=v;evt.confirmedHoles=evt.confirmedHoles.filter(x=>x!==h);saveState();queueCloudSync(evt);render()}
+function handleDriveSelection(e){const evt=activeEvent();if(!evt)return;const tid=e.currentTarget.dataset.driveTeam,h=evt.currentHole||1;evt.driveSelections[tid] ||= {};if(e.currentTarget.value)evt.driveSelections[tid][h]=e.currentTarget.value;else delete evt.driveSelections[tid][h];saveState();queueCloudSync(evt);render()}
+function confirmCurrentHole(){const evt=activeEvent();if(!evt)return;const h=evt.currentHole||1,info=formatInfo(evt.format);let missing=false;if(info.entry==='team')missing=evt.teams.filter(t=>playersForTeam(evt,t.id).length).some(t=>teamScoreFor(evt,t.id,h)==null);else missing=evt.players.some(p=>scoreFor(evt,p.id,h)==null);if(missing)return toast('Enter every required score before confirming.');if(info.tracksDrive){const teams=evt.teams.filter(t=>playersForTeam(evt,t.id).length);if(teams.some(t=>!evt.driveSelections?.[t.id]?.[h]))return toast('Select the chosen drive for each team.')}if(!evt.confirmedHoles.includes(h))evt.confirmedHoles.push(h);if(h===18){evt.status='complete';saveState();queueCloudSync(evt,{immediate:true});toast('<strong>Round complete.</strong> Results saved.');return switchTab('leaderboard')}evt.currentHole=h+1;saveState();queueCloudSync(evt,{immediate:true});render();toast(`Hole ${h} confirmed.`)}
+
+function openEventModal(eventId=null){const source=eventId?state.events.find(e=>e.id===eventId):null;const draft=source?structuredClone(source):{id:uid('event'),name:'',date:isoDate(),teeTime:'07:00',status:'live',format:'stableford',course:{name:'',tee:'White',holes:defaultHoles()},players:[{id:uid('p'),name:'Player 1',hcp:18,tone:1,teamId:'team_a'},{id:uid('p'),name:'Player 2',hcp:18,tone:2,teamId:'team_b'}],teams:createTeams(),scores:{},teamScores:{team_a:{},team_b:{}},driveSelections:{team_a:{},team_b:{}},minDrives:3,currentHole:1,confirmedHoles:[],createdAt:new Date().toISOString()};ensureTeams(draft);ui.modal={type:'event',draft,editing:!!source};renderEventModal()}
+function formatOptions(selected){const groups={};Object.entries(FORMAT_LIBRARY).forEach(([k,v])=>(groups[v.category] ||= []).push([k,v]));return Object.entries(groups).map(([g,items])=>`<optgroup label="${escapeHtml(g)}">${items.map(([k,v])=>`<option value="${k}" ${selected===k?'selected':''}>${escapeHtml(v.name)}</option>`).join('')}</optgroup>`).join('')}
+function renderEventModal(){const m=ui.modal;if(!m||m.type!=='event')return;const d=m.draft,info=formatInfo(d.format);ensureTeams(d);const teamMode=info.team;const players=d.players.map((p,i)=>`<div class="player-edit-row ${teamMode?'with-team':''}"><input value="${escapeHtml(p.name)}" data-player-name="${p.id}" aria-label="Player name"><input type="number" min="0" max="54" value="${p.hcp}" data-player-hcp="${p.id}" aria-label="Handicap">${teamMode?`<select data-player-team="${p.id}">${d.teams.map(t=>`<option value="${t.id}" ${p.teamId===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}</select>`:''}<button data-remove-player="${p.id}" ${d.players.length<=info.minPlayers?'disabled':''}>×</button></div>`).join('');const holes=d.course.holes.map(h=>`<div class="hole-edit"><strong>Hole ${h.number}</strong><div class="tiny-grid"><input type="number" min="3" max="6" value="${h.par}" data-hole-par="${h.number}"><input type="number" min="1" max="18" value="${h.si}" data-hole-si="${h.number}"></div></div>`).join('');const teamSettings=teamMode?`<div class="form-section"><h3>Teams</h3><div class="form-grid">${d.teams.map(t=>`<div class="field"><label>${escapeHtml(t.name)} handicap allowance</label><input type="number" step="0.1" data-team-hcp="${t.id}" value="${Number(t.teamHcp||0)}"></div>`).join('')}${d.format==='ambrose'?`<div class="field full-span"><label>Minimum selected drives per player</label><input type="number" min="0" max="18" data-min-drives value="${Number(d.minDrives||0)}"></div>`:''}</div><p class="course-note">Team handicap rules vary by competition. Enter the allowance being used for this event. Fairway One will store it explicitly instead of assuming one universal formula.</p></div>`:'';modalRoot.innerHTML=`<div class="modal-backdrop" id="modalBackdrop"><section class="modal-sheet"><div class="modal-handle"></div><div class="modal-title-row"><div><p class="eyebrow">${m.editing?'EDIT EVENT':'NEW EVENT'}</p><h2>${m.editing?'Event setup':'Build your round'}</h2><p class="body-copy">V4 uses one complete format for all 18 holes.</p></div><button class="modal-close" data-modal-close>×</button></div><div class="form-section"><h3>Event</h3><div class="form-grid"><div class="field full-span"><label>Event name</label><input data-draft="name" value="${escapeHtml(d.name)}" placeholder="Sunday Golf"></div><div class="field"><label>Date</label><input type="date" data-draft="date" value="${d.date}"></div><div class="field"><label>Tee time</label><input type="time" data-draft="teeTime" value="${d.teeTime}"></div></div></div><div class="form-section"><h3>Format</h3><div class="field full-span"><label>Primary game</label><select data-format>${formatOptions(d.format)}</select></div><div class="format-preview"><span class="guide-status live">Playable now</span><strong>${escapeHtml(info.name)}</strong><p>${escapeHtml(info.description)}</p></div></div><div class="form-section"><h3>Course</h3><div class="form-grid"><div class="field full-span"><label>Course name</label><input data-course="name" value="${escapeHtml(d.course.name)}" placeholder="Course name"></div><div class="field"><label>Tee</label><input data-course="tee" value="${escapeHtml(d.course.tee)}"></div><div class="field"><label>Holes</label><select disabled><option>18 holes</option></select></div></div></div><div class="form-section"><div class="section-head"><div><h3>Players</h3><p class="muted-note">${info.minPlayers}–${info.maxPlayers} players for ${escapeHtml(info.name)} in this prototype.</p></div><button class="secondary-btn small-btn" data-add-player ${d.players.length>=info.maxPlayers?'disabled':''}>+ Player</button></div><div class="player-editor">${players}</div></div>${teamSettings}<div class="form-section"><h3>Hole setup</h3><div class="course-grid">${holes}</div><p class="course-note">Left = par. Right = stroke index. Distances stay on prototype defaults for now.</p></div>${m.editing?`<div class="form-section danger-zone"><h4>Danger zone</h4><p>Deletes only this Fairway One event from this browser.</p><button class="danger-btn small-btn" data-delete-event>Delete event</button></div>`:''}<div class="modal-actions"><button class="secondary-btn" data-modal-close>Cancel</button><button class="primary-btn" data-save-event>${m.editing?'Save changes':'Create & start'}</button></div></section></div>`;bindEventModal()}
+function bindEventModal(){modalRoot.querySelectorAll('[data-modal-close]').forEach(x=>x.addEventListener('click',closeModal));modalRoot.querySelector('#modalBackdrop')?.addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});modalRoot.querySelectorAll('[data-draft]').forEach(x=>x.addEventListener('input',()=>ui.modal.draft[x.dataset.draft]=x.value));modalRoot.querySelectorAll('[data-course]').forEach(x=>x.addEventListener('input',()=>ui.modal.draft.course[x.dataset.course]=x.value));modalRoot.querySelector('[data-format]')?.addEventListener('change',e=>{ui.modal.draft.format=e.target.value;const info=formatInfo(e.target.value);while(ui.modal.draft.players.length>info.maxPlayers)ui.modal.draft.players.pop();while(ui.modal.draft.players.length<info.minPlayers){const n=ui.modal.draft.players.length+1;ui.modal.draft.players.push({id:uid('p'),name:`Player ${n}`,hcp:18,tone:n,teamId:n%2?'team_a':'team_b'})}renderEventModal()});modalRoot.querySelectorAll('[data-player-name]').forEach(x=>x.addEventListener('input',()=>{const p=ui.modal.draft.players.find(p=>p.id===x.dataset.playerName);if(p)p.name=x.value}));modalRoot.querySelectorAll('[data-player-hcp]').forEach(x=>x.addEventListener('input',()=>{const p=ui.modal.draft.players.find(p=>p.id===x.dataset.playerHcp);if(p)p.hcp=Math.max(0,Math.min(54,Number(x.value)||0))}));modalRoot.querySelectorAll('[data-player-team]').forEach(x=>x.addEventListener('change',()=>{const p=ui.modal.draft.players.find(p=>p.id===x.dataset.playerTeam);if(p)p.teamId=x.value}));modalRoot.querySelectorAll('[data-team-hcp]').forEach(x=>x.addEventListener('input',()=>{const t=ui.modal.draft.teams.find(t=>t.id===x.dataset.teamHcp);if(t)t.teamHcp=Number(x.value)||0}));modalRoot.querySelector('[data-min-drives]')?.addEventListener('input',e=>ui.modal.draft.minDrives=Math.max(0,Math.min(18,Number(e.target.value)||0)));modalRoot.querySelectorAll('[data-hole-par]').forEach(x=>x.addEventListener('input',()=>{const h=ui.modal.draft.course.holes.find(h=>h.number===Number(x.dataset.holePar));if(h)h.par=Math.max(3,Math.min(6,Number(x.value)||4))}));modalRoot.querySelectorAll('[data-hole-si]').forEach(x=>x.addEventListener('input',()=>{const h=ui.modal.draft.course.holes.find(h=>h.number===Number(x.dataset.holeSi));if(h)h.si=Math.max(1,Math.min(18,Number(x.value)||1))}));modalRoot.querySelector('[data-add-player]')?.addEventListener('click',()=>{const info=formatInfo(ui.modal.draft.format);if(ui.modal.draft.players.length>=info.maxPlayers)return;const n=ui.modal.draft.players.length+1;const ca=ui.modal.draft.players.filter(p=>p.teamId==='team_a').length,cb=ui.modal.draft.players.filter(p=>p.teamId==='team_b').length;ui.modal.draft.players.push({id:uid('p'),name:`Player ${n}`,hcp:18,tone:n,teamId:ca<=cb?'team_a':'team_b'});renderEventModal()});modalRoot.querySelectorAll('[data-remove-player]').forEach(x=>x.addEventListener('click',()=>{const info=formatInfo(ui.modal.draft.format);if(ui.modal.draft.players.length<=info.minPlayers)return;ui.modal.draft.players=ui.modal.draft.players.filter(p=>p.id!==x.dataset.removePlayer);renderEventModal()}));modalRoot.querySelector('[data-save-event]')?.addEventListener('click',saveEventDraft);modalRoot.querySelector('[data-delete-event]')?.addEventListener('click',deleteEditingEvent)}
+function saveEventDraft(){const m=ui.modal,d=m.draft,info=formatInfo(d.format);if(!d.name.trim())return toast('Give the event a name.');if(!d.course.name.trim())return toast('Enter a course name.');if(d.players.length<info.minPlayers||d.players.length>info.maxPlayers)return toast(`${info.name} needs ${info.minPlayers}–${info.maxPlayers} players here.`);if(d.players.some(p=>!p.name.trim()))return toast('Every player needs a name.');d.players.forEach((p,i)=>p.tone=(i%6)+1);ensureTeams(d);d.scores ||= {};d.teamScores ||= {};d.driveSelections ||= {};d.players.forEach(p=>d.scores[p.id] ||= {});Object.keys(d.scores).forEach(pid=>{if(!d.players.some(p=>p.id===pid))delete d.scores[pid]});d.teams.forEach(t=>{d.teamScores[t.id] ||= {};d.driveSelections[t.id] ||= {}});const idx=state.events.findIndex(e=>e.id===d.id);if(idx>=0)state.events[idx]=d;else state.events.unshift(d);state.activeEventId=d.id;d.status=d.status==='complete'?'complete':'live';saveState();queueCloudSync(d,{structure:true,immediate:true});closeModal();switchTab('play');toast(m.editing?'Event updated.':'<strong>Event created.</strong> Scorecard ready.')}
+async function deleteEditingEvent(){const id=ui.modal?.draft?.id;if(!id)return;const evt=state.events.find(e=>e.id===id);if(!confirm(cloud.session&&evt?.cloud?.eventId?'Delete this event locally and from Fairway One cloud?':'Delete this Fairway One event from this browser?'))return;try{if(cloud.session&&evt?.cloud?.eventId)await deleteCloudEvent(evt)}catch(err){return toast(`Cloud delete failed: ${escapeHtml(err.message||'Unknown error')}`)}state.events=state.events.filter(e=>e.id!==id);if(state.activeEventId===id)state.activeEventId=state.events[0]?.id||null;saveState();closeModal();render();toast('Event deleted.')}
+
+function openGameGuideModal(){const grouped={};Object.entries(FORMAT_LIBRARY).forEach(([k,v])=>(grouped[v.category] ||= []).push([k,v]));modalRoot.innerHTML=`<div class="modal-backdrop" id="modalBackdrop"><section class="modal-sheet info-sheet"><div class="modal-handle"></div><div class="modal-title-row"><div><p class="eyebrow">FAIRWAY ONE GUIDE</p><h2>How to play</h2><p class="body-copy">V4 contains ${Object.keys(FORMAT_LIBRARY).length} full-round formats. No mixed-hole segments are used yet.</p></div><button class="modal-close" data-modal-close>×</button></div>${Object.entries(grouped).map(([cat,items])=>`<div class="guide-category"><p class="eyebrow">${escapeHtml(cat)}</p><div class="guide-stack">${items.map(([k,v],i)=>`<button class="guide-format guide-button" data-guide-format="${k}"><div class="guide-number">${String(i+1).padStart(2,'0')}</div><div><span class="guide-status live">Playable now</span><h3>${escapeHtml(v.name)}</h3><p>${escapeHtml(v.description)}</p><div class="guide-example"><strong>How it works</strong><span>${escapeHtml(v.how)}</span></div></div></button>`).join('')}</div></div>`).join('')}<div class="info-callout"><strong>Next engine milestone</strong><p>Once these formats are stable, Fairway One will let organisers assign any format to any holes and calculate each segment from the same stored score data.</p></div><div class="modal-actions single"><button class="primary-btn" data-modal-close>Done</button></div></section></div>`;bindInfoModal();modalRoot.querySelectorAll('[data-guide-format]').forEach(x=>x.addEventListener('click',()=>openSingleFormatModal(x.dataset.guideFormat)))}
+function openSingleFormatModal(key,backToEvent=false){const f=formatInfo(key);modalRoot.innerHTML=`<div class="modal-backdrop" id="modalBackdrop"><section class="modal-sheet info-sheet"><div class="modal-handle"></div><div class="modal-title-row"><div><p class="eyebrow">${escapeHtml(f.category)}</p><h2>${escapeHtml(f.name)}</h2><p class="body-copy">${escapeHtml(f.description)}</p></div><button class="modal-close" data-modal-close>×</button></div><article class="format-detail-card"><span class="guide-status live">Playable now</span><h3>How to play</h3><p>${escapeHtml(f.how)}</p><div class="format-facts"><span>Entry: <strong>${f.entry==='team'?'Team score':'Individual scores'}</strong></span><span>Players: <strong>${f.minPlayers}–${f.maxPlayers}</strong></span>${f.tracksDrive?'<span>Drive tracking: <strong>Yes</strong></span>':''}</div></article><div class="info-callout"><strong>Competition rules</strong><p>Clubs and organisers may use different handicap allowances or local conditions. Fairway One stores those event settings explicitly rather than treating one local convention as universal.</p></div><div class="modal-actions single"><button class="primary-btn" data-modal-close>${backToEvent?'Back':'Done'}</button></div></section></div>`;bindInfoModal()}
+function openRulesModal(){modalRoot.innerHTML=`<div class="modal-backdrop" id="modalBackdrop"><section class="modal-sheet info-sheet"><div class="modal-handle"></div><div class="modal-title-row"><div><p class="eyebrow">ON-COURSE REFERENCE</p><h2>Rules of Golf</h2><p class="body-copy">A practical Fairway One summary. For a ruling, always use the official Rules and the course’s Local Rules.</p></div><button class="modal-close" data-modal-close>×</button></div><div class="rules-principles"><div><strong>1</strong><span>Play the course as you find it.</span></div><div><strong>2</strong><span>Play the ball as it lies unless a Rule allows relief.</span></div><div><strong>3</strong><span>Apply penalties honestly and protect the field.</span></div></div><div class="rules-list"><article><h3>Count every stroke</h3><p>A stroke made at the ball counts, together with any penalty strokes. Some formats alter when a player must hole out, so check the competition terms.</p></article><article><h3>Lost ball or out of bounds</h3><p>Stroke-and-distance relief is the standard procedure. If a ball may be lost outside a penalty area or out of bounds, a provisional ball can save time.</p></article><article><h3>Penalty areas</h3><p>Red and yellow penalty areas have different relief options. Relief normally adds one penalty stroke.</p></article><article><h3>Unplayable ball</h3><p>A player may declare a ball unplayable outside a penalty area and use an available relief option for one penalty stroke.</p></article><article><h3>Putting green</h3><p>You may mark, lift and clean your ball on the putting green and repair certain damage under the Rules.</p></article><article><h3>Local Rules matter</h3><p>Always check the host course’s Local Rules and Terms of Competition before play.</p></article></div><div class="official-rules-card"><span class="guide-status official">Official source</span><h3>Golf Australia</h3><p>Use Golf Australia’s current rules guidance for official information and the R&A/USGA Rules of Golf adopted for competition.</p><div class="official-links"><a href="https://www.golf.org.au/thebasicsofgolf" target="_blank" rel="noopener">Golf Australia beginner guide ↗</a><a href="https://www.golf.org.au/participationprograms" target="_blank" rel="noopener">Golf Australia rules & participation resources ↗</a></div></div><p class="rules-disclaimer">Fairway One’s quick guide is for convenience only and does not replace the official Rules, Local Rules or a Committee ruling.</p><div class="modal-actions single"><button class="primary-btn" data-modal-close>Done</button></div></section></div>`;bindInfoModal()}
+function bindInfoModal(){modalRoot.querySelectorAll('[data-modal-close]').forEach(x=>x.addEventListener('click',closeModal));modalRoot.querySelector('#modalBackdrop')?.addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()})}
+function closeModal(){ui.modal=null;modalRoot.innerHTML=''}
+function openCloudAuthModal(){modalRoot.innerHTML=`<div class="modal-backdrop" id="modalBackdrop"><section class="modal-sheet"><div class="modal-handle"></div><div class="modal-title-row"><div><p class="eyebrow">FAIRWAY ONE CLOUD</p><h2>Sign in or create account</h2><p class="body-copy">Use the same Fairway One account on another device to test cloud scoring and realtime updates.</p></div><button class="modal-close" data-modal-close>×</button></div><div class="form-section"><div class="form-grid"><div class="field full-span"><label>Email</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></div><div class="field full-span"><label>Password</label><input id="cloudPassword" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters"></div></div><p class="course-note">New accounts may need email confirmation before the first sign-in, depending on the Supabase Auth setting.</p></div><div class="modal-actions"><button class="secondary-btn" id="cloudCreateAccount">Create account</button><button class="primary-btn" id="cloudSignIn">Sign in</button></div></section></div>`;bindInfoModal();
+  const values=()=>({email:modalRoot.querySelector('#cloudEmail')?.value.trim(),password:modalRoot.querySelector('#cloudPassword')?.value||''});
+  modalRoot.querySelector('#cloudSignIn')?.addEventListener('click',async()=>{const {email,password}=values();if(!email||password.length<6)return toast('Enter a valid email and password.');try{const data=await signIn(email,password);cloud.session=data.session;cloud.status='connected';closeModal();await syncProfile(state.profile);await refreshCloud({silent:true});toast('Signed in to Fairway One cloud.')}catch(err){toast(`Sign in failed: ${escapeHtml(err.message||'Unknown error')}`)}});
+  modalRoot.querySelector('#cloudCreateAccount')?.addEventListener('click',async()=>{const {email,password}=values();if(!email||password.length<6)return toast('Enter a valid email and password of at least 6 characters.');try{const data=await signUp(email,password);if(data.session){cloud.session=data.session;cloud.status='connected';await syncProfile(state.profile);closeModal();await refreshCloud({silent:true});toast('Fairway One account created.')}else{toast('Account created. Check your email to confirm it, then sign in.')}}catch(err){toast(`Account creation failed: ${escapeHtml(err.message||'Unknown error')}`)}});
+}
+function openProfileModal(){modalRoot.innerHTML=`<div class="modal-backdrop" id="modalBackdrop"><section class="modal-sheet"><div class="modal-handle"></div><div class="modal-title-row"><div><p class="eyebrow">PROFILE</p><h2>Fairway One golfer</h2></div><button class="modal-close" data-modal-close>×</button></div><div class="form-section"><div class="form-grid"><div class="field full-span"><label>Name</label><input id="profileName" value="${escapeHtml(state.profile.name)}"></div><div class="field full-span"><label>Home club</label><input id="profileClub" value="${escapeHtml(state.profile.homeClub)}"></div><div class="field"><label>Handicap</label><input id="profileHcp" type="number" min="0" max="54" value="${state.profile.hcp}"></div></div></div><div class="modal-actions"><button class="secondary-btn" data-modal-close>Cancel</button><button class="primary-btn" id="saveProfile">Save profile</button></div></section></div>`;bindInfoModal();modalRoot.querySelector('#saveProfile').addEventListener('click',async()=>{state.profile.name=modalRoot.querySelector('#profileName').value.trim()||'Golfer';state.profile.homeClub=modalRoot.querySelector('#profileClub').value.trim()||'Fairway One';state.profile.hcp=Math.max(0,Math.min(54,Number(modalRoot.querySelector('#profileHcp').value)||0));saveState();if(cloud.session){try{await syncProfile(state.profile)}catch(err){cloud.lastError=err}}closeModal();render();toast('Profile updated.')})}
+function resetPrototype(){if(!confirm('Reset Fairway One V4 data on this device?'))return;state=initialState();ui.tab='home';ui.leaderboard='primary';saveState();render();toast('Prototype reset.')}
+function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='fairway-one-v4-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Prototype data exported.')}
+function toast(msg){toastRoot.innerHTML=`<div class="toast">${msg}</div>`;clearTimeout(toast._timer);toast._timer=setTimeout(()=>toastRoot.innerHTML='',2300)}
+
+navButtons.forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 render();
+bootCloud();
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));

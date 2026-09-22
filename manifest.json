@@ -1,12 +1,11 @@
 {
   "name": "Fairway One",
   "short_name": "Fairway One",
-  "description": "Any format. Any event. Your golf.",
+  "description": "Professional golf competition platform with flexible scoring formats and live event tools.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#071a12",
-  "theme_color": "#071a12",
-  "orientation": "portrait",
+  "background_color": "#fbfaf6",
+  "theme_color": "#082017",
   "icons": [
     {
       "src": "/fairway-one-mark.svg",

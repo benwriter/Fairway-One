@@ -1,50 +1,58 @@
-# Fairway One — Prototype 01
+# Fairway One — Functional Prototype V4
 
-This is the first interactive visual prototype for Fairway One.
+V4 is the first cloud-connected Fairway One prototype. It keeps the premium mobile design, removes the hard-coded segment concept, and builds around complete 18-hole formats first.
 
-## What works now
+## Playable format library
 
-- Premium mobile app-style home dashboard
-- Live round card
-- Five-tab app navigation
-- Four-player interactive scoring
-- Score changes visibly update Stableford / Match / Team impact
-- Live leaderboard view
-- Events view
-- Player profile view
-- Installable-style web app metadata / manifest
-- Responsive desktop presentation and full-screen mobile experience
+16 formats are represented in the engine:
 
-## Deploy to Vercel
+- Stroke Play
+- Stableford
+- Match Play
+- Par / Bogey
+- Modified Stableford
+- Skins
+- Four-Ball Stableford
+- Four-Ball Match Play
+- Best Ball
+- Team Aggregate
+- Best 2 of 4
+- Ambrose / Scramble
+- Foursomes
+- Greensomes
+- Chapman / Pinehurst
+- Shamble
 
-This prototype has **no build step**.
+The score-entry model changes by format. Individual formats store player scores. Shared-ball formats store team scores. Ambrose, Greensomes, Chapman and Shamble can track the selected drive.
 
-1. Upload all files in this folder to the root of the dedicated Fairway One GitHub repository.
-2. Import that repository into the dedicated Fairway One Vercel project.
-3. Use the default/static project settings. No environment variables are needed.
-4. Deploy.
+## Cloud backend
 
-Vercel will serve `index.html` directly.
+V4 is local-first but can connect to Fairway One's dedicated Supabase backend.
 
-## Important
+When signed in, the prototype can:
 
-This is deliberately separate from Writer Cup. There are no shared files, databases, environment variables or dependencies.
+- create/sync events in Supabase
+- sync course and round-hole data
+- sync players and teams
+- sync individual and team scores
+- sync selected-drive data
+- reload cloud events on another signed-in device
+- receive realtime scoring changes for the active round
 
-This prototype uses local demo data only. The next engineering phase is to create the separate Fairway One Supabase backend and connect:
+Local storage remains as a fallback so the prototype still works if the network drops.
 
-- users and player profiles
-- courses / tees / holes
-- events and groups
-- raw score entries
-- competition definitions and format segments
-- real-time multi-device score entry
-- permissions and score audit history
+## Authentication note
 
-## Files
+Hosted Supabase projects require email confirmation by default. For production use, set the Supabase Auth Site URL / allowed redirect URLs to the final Vercel domain. Until then, the app can still be tested locally, and existing confirmed accounts can sign in normally.
 
-- `index.html` — app shell
-- `styles.css` — visual design system
-- `app.js` — prototype UI and scoring interaction
-- `manifest.json` — installable web-app metadata
-- `fairway-one-mark.svg` — temporary prototype app mark
-- `vercel.json` — simple Vercel config
+## Architecture
+
+The underlying database stores raw hole data and scores separately from the scoring format. This is intentional. Once the standalone format library is stable, a future Format Builder can assign different formats to any selected holes without duplicating the score data.
+
+## Separation
+
+Fairway One has its own Supabase project, data, frontend files and deployment path. No code or data is shared with Writer Cup.
+
+## Deploy
+
+Upload the contents of this folder to the root of the Fairway One GitHub repository. Vercel can deploy it as a static app with no build step.
