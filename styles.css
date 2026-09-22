@@ -77,3 +77,138 @@ body{min-height:100dvh}
 
 /* V4 cloud connection */
 .cloud-card strong{font-size:10px;color:inherit}.cloud-card .event-actions{margin-top:12px;flex-wrap:wrap;justify-content:flex-start}.cloud-error{margin-top:10px!important;padding:8px 10px;border-radius:10px;background:#fbefed;color:var(--danger)!important;border:1px solid #eed7d3;font-size:7px!important;line-height:1.45}.status-pill{padding:5px 7px;background:var(--sage-100);color:var(--forest-700)}.status-pill i{width:5px;height:5px;border-radius:50%;background:#66c78f}
+
+
+/* V4.1 mobile usability + accessibility pass */
+html{
+  -webkit-text-size-adjust:100%;
+  touch-action:manipulation;
+}
+body,.phone-shell,.app-scroll,.screen{
+  touch-action:manipulation;
+  overscroll-behavior-y:contain;
+}
+button,a,[role="button"],.quick-card,.learn-card,.guide-button{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+button:active,.quick-card:active,.learn-card:active{transform:scale(.985)}
+button{transition:transform .08s ease,background-color .15s ease,border-color .15s ease}
+
+/* Base reading size */
+.subtle,.body-copy{font-size:12px;line-height:1.6}
+.eyebrow,.desktop-kicker{font-size:11px}
+.welcome{padding-top:30px}.welcome h1{font-size:34px}.page-title{font-size:34px}
+.page-intro{padding-top:30px}.page-intro .body-copy{max-width:360px}
+.section-head h3{font-size:22px}.section{margin-top:25px}
+.muted-note,.course-note,.rules-disclaimer{font-size:9px;line-height:1.6}
+
+/* Top bar */
+.topbar{padding-top:15px;padding-bottom:14px;min-height:66px}
+.topbar .brand-mark{width:31px;height:31px}
+.topbar .brand-copy strong{font-size:11px}.topbar .brand-copy span{font-size:12px}
+.topbar-title span{font-size:9px}.topbar-title strong{font-size:15px}
+.icon-button{width:46px;height:46px;border-radius:14px}
+.icon-button svg,.line-icon svg{width:20px;height:20px}
+
+/* Primary touch targets */
+.primary-btn,.secondary-btn,.danger-btn,.ghost-btn{
+  min-height:52px;
+  padding:15px 17px;
+  border-radius:15px;
+  font-size:13px;
+}
+.small-btn{min-height:44px;padding:11px 13px;font-size:11px;border-radius:12px}
+.text-btn{min-height:44px;padding:11px 5px;font-size:10px;display:inline-flex;align-items:center}
+.toolbar{gap:10px;margin-bottom:16px}
+.event-actions{gap:9px}
+
+/* Home + cards */
+.hero-card{padding:20px}.hero-main h2{font-size:29px}.hero-main p{font-size:11px;line-height:1.45}
+.live-pill,.status-pill{font-size:9px}.hero-round-id{font-size:9px}
+.hero-meta span{font-size:9px;padding:7px 9px}
+.hero-stat span,.mini-label{font-size:9px}.hero-stat strong{font-size:23px}
+.quick-grid{gap:11px}.quick-card{padding:16px;min-height:124px;border-radius:20px}
+.quick-card .icon-wrap{width:42px;height:42px;border-radius:13px;margin-bottom:12px}
+.quick-card span{font-size:9px}.quick-card strong{font-size:21px}.quick-card small{font-size:9px;line-height:1.4}
+.event-card{padding:16px}.event-card h4{font-size:20px}.event-card p{font-size:10px;line-height:1.45}
+.event-tags span{font-size:8px;padding:6px 8px}
+.empty-card p{font-size:11px}.empty-card h3{font-size:22px}
+
+/* Play screen */
+.play-header{padding:17px 17px;border-radius:25px}
+.hole-nav{grid-template-columns:48px 1fr 48px}
+.hole-nav button{width:46px;height:46px;border-radius:13px;font-size:22px}
+.hole-centre span{font-size:9px}.hole-centre strong{font-size:42px}
+.hole-info div{padding:10px 6px}.hole-info span{font-size:8px}.hole-info strong{font-size:17px}
+.segment-banner{font-size:9px;padding:10px}
+.score-head h2{font-size:24px}.sync-pill{font-size:9px}
+.score-row{grid-template-columns:42px minmax(0,1fr) auto;gap:11px;padding:14px}
+.avatar{width:42px;height:42px;border-radius:14px;font-size:12px}.avatar.small{width:34px;height:34px;font-size:10px}
+.player-copy strong{font-size:12px}.player-copy span{font-size:9px}
+.score-control{grid-template-columns:44px 60px 44px 38px;gap:6px}
+.score-control button{height:44px;min-width:44px;border-radius:12px;font-size:22px;font-weight:700}
+.score-control .clear-score{font-size:14px}
+.score-value{height:52px;border-radius:13px}.score-value strong{font-size:23px}.score-value span{font-size:8px}
+.hole-actions{gap:10px;margin-top:14px}
+.impact-item span{font-size:8px}.impact-item strong{font-size:16px}.impact-item small{font-size:8px}
+.segment-tabs button{min-height:44px;font-size:10px;padding:10px 7px}
+.leader-head{font-size:8px}.leader-row{padding:13px 12px}.leader-person strong{font-size:11px}.leader-person span{font-size:8px}.leader-thru{font-size:10px}.leader-score{font-size:18px}
+.match-card{padding:15px}.match-card strong{font-size:16px}.match-card span{font-size:8px}.match-result{font-size:10px}
+
+/* Forms: 16px prevents iOS focus zoom */
+.field label{font-size:9px}
+.field input,.field select,.field textarea,
+.player-edit-row input,.player-edit-row select,
+.hole-edit input,.drive-select select{
+  min-height:48px;
+  font-size:16px;
+  padding:12px 12px;
+  border-radius:12px;
+}
+.player-edit-row{grid-template-columns:minmax(0,1fr) 88px 46px;gap:8px}
+.player-edit-row.with-team{grid-template-columns:minmax(0,1fr) 78px 100px 46px}
+.player-edit-row button{min-width:46px;min-height:48px}
+.toggle-card{padding:13px}.toggle-card input{width:22px;height:22px}.toggle-card strong{font-size:11px}.toggle-card span{font-size:9px}
+.form-section h3{font-size:19px}.form-grid{gap:11px}.field{gap:7px}
+.hole-edit{padding:9px}.hole-edit>strong{font-size:9px}.hole-edit input{padding:9px 6px}
+.modal-title-row h2{font-size:28px}.modal-close{width:46px;height:46px;border-radius:13px;font-size:20px}
+.modal-sheet{padding:18px 19px calc(30px + env(safe-area-inset-bottom))}
+
+/* Format + learning centre */
+.learn-grid{gap:11px}.learn-card{padding:16px;min-height:164px}
+.learn-card .learn-icon{width:42px;height:42px;border-radius:13px}
+.learn-card strong{font-size:18px}.learn-card small{font-size:9px}.learn-card b{font-size:9px}
+.guide-format{grid-template-columns:42px 1fr;gap:12px;padding:16px}.guide-number{width:40px;height:40px;font-size:11px}
+.guide-format h3{font-size:20px}.guide-format p{font-size:10px}.guide-status{font-size:8px;padding:5px 8px}
+.guide-example strong{font-size:9px}.guide-example span{font-size:9px}
+.info-callout strong{font-size:11px}.info-callout p{font-size:10px}
+.rules-principles span{font-size:10px}.rules-principles strong{font-size:10px;width:30px;height:30px}
+.rules-list h3{font-size:17px}.rules-list p{font-size:10px}
+.official-rules-card p{font-size:10px}.official-links a{font-size:11px;min-height:48px;padding:14px 13px}
+.format-banner{padding:13px 14px}.format-banner span{font-size:8px}.format-banner strong{font-size:17px}.format-banner button{min-height:44px;font-size:10px;padding:10px 12px}
+.team-score-top h3{font-size:18px}.team-score-top small{font-size:9px}
+.drive-select label{font-size:9px}.drive-counts span{font-size:8px;padding:5px 7px}
+.format-preview strong{font-size:19px}.format-preview p{font-size:10px}
+.team-chip{font-size:8px!important;padding:5px 7px}.team-leader-card h3{font-size:19px}.team-leader-card p{font-size:10px}
+.format-detail-card h3{font-size:22px}.format-detail-card p{font-size:11px}.format-facts span{font-size:9px}
+.cloud-card strong{font-size:12px}.cloud-error{font-size:9px!important}
+
+/* Premium bottom navigation */
+.app-scroll{padding-bottom:112px}
+.bottom-nav{
+  height:100px;
+  padding:9px 10px calc(10px + env(safe-area-inset-bottom));
+}
+.nav-item{font-size:9.5px;gap:4px;min-height:64px;border-radius:14px}
+.nav-icon{width:46px;height:42px;border-radius:13px;font-size:28px;line-height:1}
+.nav-item.active .nav-icon{background:#dfe8e1;box-shadow:inset 0 0 0 1px rgba(16,51,38,.04)}
+.toast-root{bottom:112px}.toast{font-size:11px;padding:13px 15px}
+
+@media(max-width:390px){
+  .score-row{grid-template-columns:42px minmax(0,1fr)}
+  .score-control{grid-column:1/-1;width:100%;grid-template-columns:1fr 64px 1fr 44px}
+  .player-edit-row.with-team{grid-template-columns:minmax(0,1fr) 74px 92px 44px}
+  .course-grid{grid-template-columns:repeat(2,1fr)}
+  .nav-item{font-size:9px}.nav-icon{font-size:26px}
+}
