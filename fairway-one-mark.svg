@@ -15,9 +15,6 @@
     <stop offset=".42" stop-color="#cda96a"/>
     <stop offset="1" stop-color="#9f7b42"/>
   </linearGradient>
-  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-    <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#000000" flood-opacity=".28"/>
-  </filter>
 </defs>
 
 <rect width="1024" height="1024" fill="url(#bg)"/>
@@ -34,15 +31,15 @@
       fill="none" stroke="#f3e4c5" stroke-width="3" stroke-linecap="round" opacity=".18"/>
 
 <!-- F monogram -->
-<g filter="url(#shadow)">
+<g>
   <path d="M300 280 H576 V360 H390 V470 H542 V548 H390 V742 H300 Z" fill="url(#gold)"/>
   <!-- inner highlight -->
   <path d="M317 298 H558 V319 H365 V488 H520 V508 H365 V724 H317 Z" fill="#f5e8c9" opacity=".11"/>
 </g>
 
 <!-- 1 as flagstick -->
-<g filter="url(#shadow)">
-  <path d="M646 305 L695 265 V748 H613 V330 Z" fill="#f7f2e8"/>
+<g>
+  <path d="M646 305 L695 265 V748 H613 V330 Z" fill="url(#gold)"/>
   <path d="M684 274 H835 L788 334 L835 395 H684 Z" fill="url(#gold)"/>
   <circle cx="654" cy="777" r="58" fill="#f7f2e8"/>
   <circle cx="635" cy="760" r="5.5" fill="#d7d1c5" opacity=".9"/>

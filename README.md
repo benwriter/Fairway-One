@@ -1,4 +1,4 @@
-# Fairway One — Functional Prototype V4.2
+# Fairway One — Functional Prototype V4.3
 
 V4 is the first cloud-connected Fairway One prototype. It keeps the premium mobile design, removes the hard-coded segment concept, and builds around complete 18-hole formats first.
 
@@ -58,7 +58,7 @@ Fairway One has its own Supabase project, data, frontend files and deployment pa
 Upload the contents of this folder to the root of the Fairway One GitHub repository. Vercel can deploy it as a static app with no build step.
 
 
-## V4.2 mobile usability pass
+## V4.3 mobile usability pass
 - Larger touch targets throughout the app
 - 16px form controls to prevent iOS focus zoom
 - Global `touch-action: manipulation` to suppress double-tap zoom while preserving normal panning/pinch gestures
@@ -67,10 +67,19 @@ Upload the contents of this folder to the root of the Fairway One GitHub reposit
 - New premium raster PWA / Apple home-screen icon assets
 
 
-## V4.2 mobile usability pass
+## V4.3 mobile usability pass
 - Larger mobile typography throughout
 - Full-width scoring controls on phones
 - Larger action buttons and navigation targets
 - Proper SVG bottom-navigation icons
 - New premium Fairway One F1/flag app icon
 - PWA cache bumped so refreshed assets deploy cleanly
+
+
+## V4.3 mobile balance pass
+
+- Reduced score controls and row height so four-player cards can fit comfortably on one scoring view.
+- Reduced global button scale from V4.2 while keeping readable touch targets.
+- Reduced bottom navigation height and icon size.
+- Changed the iOS/PWA safe-area background to Fairway One cream so the bottom system area blends into the navigation rather than showing a dark green strip.
+- Updated the F1 icon so the flagstick uses the same gold treatment as the F.
