@@ -1,85 +1,102 @@
-# Fairway One — Functional Prototype V4.3
+# Fairway One — Functional Prototype V5.1
 
-V4 is the first cloud-connected Fairway One prototype. It keeps the premium mobile design, removes the hard-coded segment concept, and builds around complete 18-hole formats first.
+Version 5.1 builds on the first major product/design milestone for Fairway One.
 
-## Playable format library
+It keeps the working V4 scoring, event and cloud foundation, but moves the visual direction toward the premium mobile mock-up selected as the Fairway One design reference. It also introduces the first working **Build Your Round** engine.
 
-16 formats are represented in the engine:
+## V5 visual direction
 
-- Stroke Play
-- Stableford
-- Match Play
-- Par / Bogey
-- Modified Stableford
-- Skins
-- Four-Ball Stableford
-- Four-Ball Match Play
-- Best Ball
-- Team Aggregate
-- Best 2 of 4
-- Ambrose / Scramble
-- Foursomes
-- Greensomes
-- Chapman / Pinehurst
-- Shamble
+The Home screen now follows the premium reference more closely:
 
-The score-entry model changes by format. Individual formats store player scores. Shared-ball formats store team scores. Ambrose, Greensomes, Chapman and Shamble can track the selected drive.
+- Large Fairway One wordmark and flag/fairway mark
+- PLAY · COMPETE · TOGETHER brand line
+- Player/profile badge in the header
+- Scenic golf-course live-round hero card
+- Gold primary Resume Round action
+- Premium stat blocks and event chips
+- Four-card format engine: Individual, Team, Match Play and Custom
+- Consistent premium bottom navigation icons
+- New matching installed-app icon
 
-## Cloud backend
+The inner screens retain the same working structure, with V4.3's balanced mobile sizing so the scoring controls remain practical on an iPhone.
 
-V4 is local-first but can connect to Fairway One's dedicated Supabase backend.
+## 16 standalone formats
 
-When signed in, the prototype can:
+1. Stroke Play
+2. Stableford
+3. Match Play
+4. Par / Bogey
+5. Modified Stableford
+6. Skins
+7. Four-Ball Stableford
+8. Four-Ball Match Play
+9. Best Ball
+10. Team Aggregate
+11. Best 2 of 4
+12. Ambrose / Scramble
+13. Foursomes
+14. Greensomes
+15. Chapman / Pinehurst
+16. Shamble
 
-- create/sync events in Supabase
-- sync course and round-hole data
-- sync players and teams
-- sync individual and team scores
-- sync selected-drive data
-- reload cloud events on another signed-in device
-- receive realtime scoring changes for the active round
+## New: Build Your Round
 
-Local storage remains as a fallback so the prototype still works if the network drops.
+A custom event can now be split however the organiser wants.
 
-## Authentication note
+The organiser can:
 
-Hosted Supabase projects require email confirmation by default. For production use, set the Supabase Auth Site URL / allowed redirect URLs to the final Vercel domain. Until then, the app can still be tested locally, and existing confirmed accounts can sign in normally.
+- Create as many segments as required, up to 18
+- Give each segment a name
+- Choose one of the 16 scoring formats for each segment
+- Assign any combination of holes to each segment
+- Reassign holes between segments by tapping them
+- Give each segment a competition-points value for future event aggregation
 
-## Architecture
+Example:
 
-The underlying database stores raw hole data and scores separately from the scoring format. This is intentional. Once the standalone format library is stable, a future Format Builder can assign different formats to any selected holes without duplicating the score data.
+- Holes 1–4: Ambrose
+- Holes 5–8: Four-Ball Stableford
+- Hole 9: Match Play
+- Holes 10–15: Stableford
+- Holes 16–18: Foursomes
 
-## Separation
+The live scorecard looks up the active segment for the current hole and changes the required score entry automatically. Shared-ball formats use team scores; individual formats use player scores; drive-selection formats keep their existing selected-drive tracking.
 
-Fairway One has its own Supabase project, data, frontend files and deployment path. No code or data is shared with Writer Cup.
+The Scores tab shows a live segment board for custom events.
 
-## Deploy
+## Cloud / Supabase
 
-Upload the contents of this folder to the root of the Fairway One GitHub repository. Vercel can deploy it as a static app with no build step.
+Fairway One V5 uses the existing dedicated Fairway One Supabase project in Sydney. The backend is completely separate from Writer Cup.
+
+V5 adds a real `round_segments` table with Row Level Security. Custom segment definitions therefore sync to Fairway One Cloud rather than existing only in local browser storage.
+
+The latest Supabase security advisor check after the V5 migration reports no security findings.
+
+## Deployment
+
+Upload the **contents of this folder** to the root of the `Fairway-One` GitHub repository. Vercel should redeploy automatically from `main`.
+
+Because V5 changes the PWA icon and service-worker cache, remove the existing Fairway One Home Screen shortcut after deployment and add it again from Safari to ensure iOS picks up the new icon.
+
+## Testing priorities
+
+1. Check the V5 Home screen against the premium reference image.
+2. Resume the demo round and confirm the scoring controls still fit comfortably.
+3. Create a normal Stableford event and complete several holes.
+4. Create a **Build Your Round** event.
+5. Add multiple segments and move holes between them.
+6. Include both an individual and a team/shared-ball format in the same custom round.
+7. Move through the scorecard and confirm the entry UI changes with the active format.
+8. Check the custom Segment Board in Scores.
+9. If signed in, sync the custom event to Fairway One Cloud and reload it.
+
+## Important prototype note
+
+V5 stores a competition-points value for each custom segment and shows segment leaders, but it does not yet force a single overall winner when a custom event mixes fundamentally different participant units, such as individual Match Play and team Ambrose. That aggregation layer should be designed deliberately rather than inventing an arbitrary rule.
 
 
-## V4.3 mobile usability pass
-- Larger touch targets throughout the app
-- 16px form controls to prevent iOS focus zoom
-- Global `touch-action: manipulation` to suppress double-tap zoom while preserving normal panning/pinch gestures
-- Larger bottom navigation icons and labels
-- Larger typography throughout scoring, forms, cards and learning content
-- New premium raster PWA / Apple home-screen icon assets
+## V5.1 — Custom segment results and competition points
 
+Build Your Round now derives a final result for each completed custom segment. The segment's configured competition points are awarded to the winner, or split evenly between tied winners. These awards are then totalled into an Overall Event Score.
 
-## V4.3 mobile usability pass
-- Larger mobile typography throughout
-- Full-width scoring controls on phones
-- Larger action buttons and navigation targets
-- Proper SVG bottom-navigation icons
-- New premium Fairway One F1/flag app icon
-- PWA cache bumped so refreshed assets deploy cleanly
-
-
-## V4.3 mobile balance pass
-
-- Reduced score controls and row height so four-player cards can fit comfortably on one scoring view.
-- Reduced global button scale from V4.2 while keeping readable touch targets.
-- Reduced bottom navigation height and icon size.
-- Changed the iOS/PWA safe-area background to Fairway One cream so the bottom system area blends into the navigation rather than showing a dark green strip.
-- Updated the F1 icon so the flagstick uses the same gold treatment as the F.
+This calculation applies only to `format: custom`. Standalone Stroke, Stableford, Match Play, Ambrose and the other full-round formats are unchanged. Segment points are derived from the underlying scores, so editing a hole automatically recalculates the segment result and overall event score.

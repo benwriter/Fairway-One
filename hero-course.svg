@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b8b49b"/><stop offset=".4" stop-color="#788e7e"/><stop offset="1" stop-color="#335849"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="1" y2=".4"><stop stop-color="#6f928e"/><stop offset="1" stop-color="#284f51"/></linearGradient>
+    <linearGradient id="fairway" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4e7e54"/><stop offset=".48" stop-color="#315f3e"/><stop offset="1" stop-color="#163a2c"/></linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dfd2a5"/><stop offset="1" stop-color="#bcae82"/></linearGradient>
+    <radialGradient id="sun" cx="85%" cy="13%" r="34%"><stop stop-color="#f4dfac" stop-opacity=".88"/><stop offset=".35" stop-color="#e3c889" stop-opacity=".24"/><stop offset="1" stop-color="#e3c889" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="720" fill="url(#sky)"/>
+  <rect width="1200" height="720" fill="url(#sun)"/>
+  <path d="M710 220C850 194 1030 216 1200 190V720H720c33-118 26-233-10-500z" fill="url(#sea)"/>
+  <path d="M0 262c151-28 300-4 425-33 113-27 198-27 311 1-76 52-127 104-148 157-27 69-14 175 20 333H0z" fill="#153d2c"/>
+  <path d="M78 720c106-181 210-294 332-340 83-31 165-26 264-3-79 47-135 100-171 158-31 51-52 113-62 185z" fill="url(#fairway)"/>
+  <path d="M186 720c87-149 173-240 261-274 45-17 93-22 151-15-62 42-105 88-130 136-21 40-36 91-45 153z" fill="#76a36f" opacity=".64"/>
+  <path d="M554 448c45-21 92-31 137-27 12 20 14 38 7 55-34-7-75 0-123 20-11-14-18-30-21-48z" fill="url(#sand)"/>
+  <path d="M340 518c39-17 76-19 111-8-2 22-11 40-28 54-30-8-63-5-98 10-5-21 0-40 15-56z" fill="url(#sand)"/>
+  <path d="M636 304c67 7 130-8 191-43 23 13 48 25 76 36-91 54-173 76-246 66z" fill="#1f4f38"/>
+  <path d="M780 338c67-10 138-38 213-84 26 8 53 14 83 19-93 69-183 111-269 127z" fill="#234b34"/>
+  <g fill="#0b271d" opacity=".75">
+    <circle cx="125" cy="305" r="31"/><circle cx="168" cy="298" r="25"/><circle cx="221" cy="315" r="35"/><circle cx="267" cy="300" r="26"/>
+    <circle cx="493" cy="318" r="25"/><circle cx="529" cy="306" r="21"/><circle cx="571" cy="316" r="28"/>
+  </g>
+</svg>

@@ -81,8 +81,10 @@ function ensureCloudIds(event){
   event.cloud.roundId ||= uuid();
   event.cloud.playerIds ||= {};
   event.cloud.teamIds ||= {};
+  event.cloud.segmentIds ||= {};
   (event.players || []).forEach(p => event.cloud.playerIds[p.id] ||= uuid());
   (event.teams || []).forEach(t => event.cloud.teamIds[t.id] ||= uuid());
+  (event.customSegments || []).forEach(seg => event.cloud.segmentIds[seg.id] ||= uuid());
   return event.cloud;
 }
 
@@ -203,6 +205,20 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       distance_m: h.distance || null
     }));
     if(roundHoles.length){ res = await supabase.from('round_holes').upsert(roundHoles,{onConflict:'round_id,hole_number'}); throwIf(res.error); }
+
+
+    const segmentRows = event.format === 'custom' ? (event.customSegments || []).map((seg,i)=>({
+      id: cloud.segmentIds[seg.id] || (cloud.segmentIds[seg.id]=uuid()),
+      round_id: cloud.roundId,
+      name: seg.name || `Segment ${i+1}`,
+      format_key: dbFormat(seg.format || 'stableford'),
+      holes: [...new Set((seg.holes || []).map(Number))].filter(h=>h>=1&&h<=36).sort((a,b)=>a-b),
+      competition_points: Number(seg.points ?? 1),
+      settings: seg.settings || {},
+      sort_order: i
+    })).filter(seg=>seg.holes.length) : [];
+    if(segmentRows.length){ res = await supabase.from('round_segments').upsert(segmentRows); throwIf(res.error); }
+    await deleteStale('round_segments','round_id',cloud.roundId,segmentRows.map(x=>x.id));
   } else {
     const completedAt = event.status === 'complete' ? (event.cloud.completedAt ||= new Date().toISOString()) : null;
     const { error } = await supabase.from('rounds').update({
@@ -306,7 +322,7 @@ async function loadOneEvent(eventRow){
   throwIf(roundError);
   if(!round) return null;
 
-  const [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes] = await Promise.all([
+  const [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes] = await Promise.all([
     eventRow.course_id ? supabase.from('courses').select('*').eq('id',eventRow.course_id).maybeSingle() : Promise.resolve({data:null,error:null}),
     round.tee_id ? supabase.from('course_tees').select('*').eq('id',round.tee_id).maybeSingle() : Promise.resolve({data:null,error:null}),
     supabase.from('round_holes').select('*').eq('round_id',round.id).order('hole_number'),
@@ -314,9 +330,10 @@ async function loadOneEvent(eventRow){
     supabase.from('teams').select('*').eq('event_id',eventRow.id).order('sort_order'),
     supabase.from('scores').select('*').eq('round_id',round.id),
     supabase.from('team_scores').select('*').eq('round_id',round.id),
-    supabase.from('ambrose_drives').select('*').eq('round_id',round.id)
+    supabase.from('ambrose_drives').select('*').eq('round_id',round.id),
+    supabase.from('round_segments').select('*').eq('round_id',round.id).order('sort_order')
   ]);
-  [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes].forEach(r=>throwIf(r.error));
+  [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes].forEach(r=>throwIf(r.error));
 
   let membersRes={data:[],error:null};
   const loadedTeamIds=(teamsRes.data||[]).map(x=>x.id);
@@ -350,9 +367,12 @@ async function loadOneEvent(eventRow){
     roundId:round.id,
     playerIds:Object.fromEntries(players.map(p=>[p.id,p.id])),
     teamIds:Object.fromEntries(teams.map(t=>[t.id,t.id])),
+    segmentIds:Object.fromEntries((segmentsRes.data||[]).map(seg=>[seg.id,seg.id])),
     completedAt:round.completed_at || null,
     synced:true
   };
+
+  const customSegments=(segmentsRes.data||[]).map((seg,i)=>({id:seg.id,name:seg.name,format:localFormat(seg.format_key),holes:(seg.holes||[]).map(Number).sort((a,b)=>a-b),points:Number(seg.competition_points||1),settings:seg.settings||{}}));
 
   return {
     id:eventRow.id,
@@ -361,6 +381,7 @@ async function loadOneEvent(eventRow){
     teeTime:timeFromDb(eventRow.tee_time),
     status:statusFromDb(eventRow.status),
     format:localFormat(round.format_key),
+    customSegments,
     course:{name:courseRes.data?.name || 'Course',tee:teeRes.data?.name || 'White',holes},
     players,
     teams,
@@ -395,6 +416,7 @@ export function subscribeToRound(roundId,onChange){
     .on('postgres_changes',{event:'*',schema:'public',table:'scores',filter:`round_id=eq.${roundId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'team_scores',filter:`round_id=eq.${roundId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'ambrose_drives',filter:`round_id=eq.${roundId}`},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'round_segments',filter:`round_id=eq.${roundId}`},onChange)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rounds',filter:`id=eq.${roundId}`},onChange)
     .subscribe();
   return channel;

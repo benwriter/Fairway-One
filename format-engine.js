@@ -1,4 +1,10 @@
 export const FORMAT_LIBRARY = {
+  custom: {
+    name: 'Build Your Round', short: 'Custom', category: 'Custom', entry: 'dynamic', team: true,
+    description: 'Assign different Fairway One formats to whichever holes you choose.',
+    how: 'Create segments, choose a format for each segment, and assign any of the 18 holes. Fairway One switches scoring logic automatically as the round moves between segments.',
+    minPlayers: 1, maxPlayers: 8, custom: true
+  },
   stroke: {
     name: 'Stroke Play', short: 'Stroke', category: 'Individual', entry: 'individual', team: false,
     description: 'Every stroke counts. Lowest gross or net total wins.',
@@ -154,6 +160,7 @@ export function scoredHolesForPlayer(event, playerId) {
 
 export function commonScoredHoles(event) {
   const info = formatInfo(event.format);
+  if (info.custom) return [...new Set(event.confirmedHoles || [])].sort((a,b)=>a-b);
   if (info.entry === 'team') {
     const activeTeams=(event.teams||[]).filter(t => playersForTeam(event,t.id).length);
     if (!activeTeams.length) return [];
@@ -295,6 +302,7 @@ export function driveCounts(event,team){
 
 export function primaryLeaderboard(event){
   const fmt=event.format;
+  if(fmt==='custom') return [];
   if(['stroke'].includes(fmt)) return event.players.map(player=>({type:'player',player,stats:strokeStats(event,player),sort:strokeStats(event,player).toPar})).sort((a,b)=>a.sort-b.sort);
   if(fmt==='stableford') return event.players.map(player=>({type:'player',player,stats:stablefordStats(event,player),sort:-stablefordStats(event,player).points})).sort((a,b)=>a.sort-b.sort);
   if(fmt==='par_bogey') return event.players.map(player=>({type:'player',player,stats:parBogeyStats(event,player),sort:-parBogeyStats(event,player).points})).sort((a,b)=>a.sort-b.sort);

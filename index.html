@@ -3,49 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#fbfaf6" />
+  <meta name="theme-color" content="#fbfaf5" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Fairway One" />
-  <meta name="description" content="Fairway One — flexible golf competitions, live scoring and professional event tools." />
-  <link rel="manifest" href="/manifest.json?v=43" />
-  <link rel="icon" href="/icon-192.png?v=43" type="image/png" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=43" />
-  <link rel="stylesheet" href="/styles.css?v=43" />
+  <meta name="description" content="Fairway One — premium golf scoring, flexible competition formats and live event tools." />
+  <link rel="manifest" href="/manifest.json?v=50" />
+  <link rel="icon" href="/icon-192.png?v=50" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=50" />
+  <link rel="stylesheet" href="/styles.css?v=50" />
   <title>Fairway One</title>
 </head>
 <body>
   <div class="desktop-shell">
     <aside class="desktop-panel">
-      <div class="brand brand-large">
-        <span class="brand-mark"><span class="brand-flag"></span><span class="brand-pin"></span></span>
-        <span class="brand-copy"><strong>FAIRWAY</strong><span>ONE</span></span>
-      </div>
+      <div class="desktop-v5-brand"><img src="/fairway-one-mark.svg" alt=""><div><strong>Fairway One</strong><span>PLAY · COMPETE · TOGETHER</span></div></div>
       <p class="desktop-kicker">GOLF, BUILT YOUR WAY</p>
       <h1>One score.<br><em>More ways to play.</em></h1>
-      <p class="desktop-copy">A professional golf competition platform built around reusable scoring formats, real hole data and a rules engine that can grow into custom mixed-format events.</p>
+      <p class="desktop-copy">Premium live scoring for a solo social round, a group of mates, or a fully managed tournament. Version 5 adds Fairway One’s custom round builder.</p>
       <div class="desktop-points">
-        <span><i>✓</i> 16 full-round formats in the V4 library</span>
+        <span><i>✓</i> 16 standalone scoring formats</span>
+        <span><i>✓</i> Build Your Round across any combination of holes</span>
         <span><i>✓</i> Individual, team and shared-ball scoring</span>
-        <span><i>✓</i> Ambrose drive tracking and team scoring</span>
-        <span><i>✓</i> Built to connect to Fairway One's own Supabase backend</span>
+        <span><i>✓</i> Dedicated Supabase cloud and realtime foundation</span>
       </div>
-      <div class="prototype-badge">FAIRWAY ONE · FUNCTIONAL PROTOTYPE V4.3</div>
+      <div class="prototype-badge">FAIRWAY ONE · FUNCTIONAL PROTOTYPE V5.1</div>
     </aside>
 
     <div class="phone-shell" id="phoneShell">
       <div class="app-scroll" id="app"></div>
       <nav class="bottom-nav" id="bottomNav" aria-label="Primary navigation">
         <button data-tab="home" class="nav-item active"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></svg></span><span>Home</span></button>
-        <button data-tab="play" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3"/><path d="M6 4h10l-2.5 3L16 10H6"/></svg></span><span>Play</span></button>
-        <button data-tab="events" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M7.5 14h3M13.5 14h3M7.5 17.5h3"/></svg></span><span>Events</span></button>
-        <button data-tab="leaderboard" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V12M12 20V5M19 20V9"/><path d="M3 20h18"/></svg></span><span>Scores</span></button>
-        <button data-tab="profile" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 21c.6-4 3.2-6 7-6s6.4 2 7 6"/></svg></span><span>More</span></button>
+        <button data-tab="play" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3"/><path d="M6 4h11l-3 4 3 4H6"/></svg></span><span>Play</span></button>
+        <button data-tab="events" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><circle cx="8" cy="14.5" r=".7" fill="currentColor" stroke="none"/><circle cx="12" cy="14.5" r=".7" fill="currentColor" stroke="none"/><circle cx="16" cy="14.5" r=".7" fill="currentColor" stroke="none"/></svg></span><span>Events</span></button>
+        <button data-tab="leaderboard" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V13h3v7zM10.5 20V8h3v12zM16 20V4h3v16z"/><path d="M3 20h18"/></svg></span><span>Scores</span></button>
+        <button data-tab="profile" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg></span><span>More</span></button>
       </nav>
       <div id="modalRoot"></div>
       <div id="toastRoot" class="toast-root"></div>
     </div>
   </div>
-  <script type="module" src="/app.js?v=43"></script>
+  <script type="module" src="/app.js?v=50"></script>
 </body>
 </html>
