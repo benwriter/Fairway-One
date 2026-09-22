@@ -1,4 +1,4 @@
-# Fairway One — Version 6
+# Fairway One — Version 6.1
 
 Fairway One is a mobile-first golf scoring and competition platform for anything from a solo social round to a managed multi-player event.
 
@@ -19,3 +19,8 @@ Fairway One is a mobile-first golf scoring and competition platform for anything
 Upload the contents of this folder to the root of the Fairway One repository. Vercel will redeploy from the connected branch.
 
 If Fairway One is installed on iPhone, removing and re-adding the Home Screen app after deployment is the quickest way to refresh cached PWA assets.
+
+
+## V6.1 changes
+- Homepage strapline changed to **PLAY · SCORE · COMPETE**.
+- Round History moved above the Format Engine on the homepage.
