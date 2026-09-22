@@ -21,6 +21,10 @@ function statusToDb(status){ return status === 'complete' ? 'completed' : status
 function statusFromDb(status){ return status === 'completed' ? 'complete' : status === 'live' ? 'live' : 'draft'; }
 function timeForDb(value){ return value ? `${value}:00`.slice(0,8) : null; }
 function timeFromDb(value){ return value ? String(value).slice(0,5) : '07:00'; }
+function formatInfoForSync(event){
+  const teamFormats=new Set(['ambrose','foursomes','greensomes','chapman']);
+  return teamFormats.has(event?.format)?'team':'individual';
+}
 function throwIf(error){ if(error) throw error; }
 
 export async function initCloud(){
@@ -50,6 +54,20 @@ export async function signOut(){
   throwIf(error);
 }
 
+export async function joinEventByCode(code){
+  const { data, error } = await supabase.functions.invoke('join-event',{body:{action:'join',code:String(code||'').trim().toUpperCase()}});
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function claimEventPlayer(eventId,playerId){
+  const { data, error } = await supabase.functions.invoke('join-event',{body:{action:'claim',eventId,playerId}});
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+
 export async function loadProfile(){
   const { data: { user } } = await supabase.auth.getUser();
   if(!user) return null;
@@ -67,11 +85,36 @@ export async function syncProfile(profile){
     display_name: profile.name || 'Golfer',
     home_club: profile.homeClub || null,
     handicap_index: Number(profile.hcp ?? 0),
-    country_code: profile.countryCode || 'AU'
+    country_code: profile.countryCode || 'AU',
+    avatar_path: profile.avatarPath || null
   };
   const { data, error } = await supabase.from('profiles').upsert(row).select().single();
   throwIf(error);
+  const { error: publicError } = await supabase.from('public_profiles').upsert({
+    id:user.id,
+    display_name:row.display_name,
+    avatar_path:row.avatar_path,
+    updated_at:new Date().toISOString()
+  });
+  throwIf(publicError);
   return data;
+}
+
+export function profilePhotoUrl(path){
+  if(!path) return '';
+  const { data } = supabase.storage.from('profile-photos').getPublicUrl(path);
+  return data?.publicUrl || '';
+}
+
+export async function uploadProfilePhoto(file){
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  throwIf(userError);
+  if(!user) throw new Error('Sign in to upload a profile photo.');
+  const ext=((file.name||'photo.jpg').split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+  const path=`${user.id}/avatar-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('profile-photos').upload(path,file,{contentType:file.type||'image/jpeg',cacheControl:'3600',upsert:false});
+  throwIf(error);
+  return { path, url: profilePhotoUrl(path) };
 }
 
 export async function loadCourseLibrary(){
@@ -137,6 +180,17 @@ export async function syncEvent(event, profile, { structure=true } = {}){
   throwIf(userError);
   if(!user) throw new Error('Sign in to use cloud sync.');
   const cloud = ensureCloudIds(event);
+  let role=cloud.role||null;
+  if(cloud.eventId){
+    const { data: member } = await supabase.from('event_members').select('role').eq('event_id',cloud.eventId).eq('user_id',user.id).maybeSingle();
+    if(member?.role) role=member.role;
+  }
+  if(event.cloud?.synced && role && role!=='admin'){
+    cloud.role=role;
+    await syncScores(event,user.id,{role});
+    await syncProfile(profile);
+    return cloud;
+  }
 
   if(structure){
     let res;
@@ -180,7 +234,9 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       status: statusToDb(event.status),
       hole_count: event.course?.holes?.length || 18,
       event_mode: event.eventMode || 'round'
-    }); throwIf(res.error);
+    }).select('id,join_code').single(); throwIf(res.error);
+    cloud.joinCode=res.data?.join_code||cloud.joinCode||null;
+    cloud.role='admin';
 
     res = await supabase.from('event_members').upsert({
       event_id: cloud.eventId,
@@ -188,14 +244,19 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       role: 'admin'
     },{onConflict:'event_id,user_id'}); throwIf(res.error);
 
+    const { data: existingPlayerLinks, error: existingPlayerLinksError } = await supabase.from('event_players').select('id,user_id').eq('event_id',cloud.eventId);
+    throwIf(existingPlayerLinksError);
+    const existingUserByPlayer=Object.fromEntries((existingPlayerLinks||[]).map(x=>[x.id,x.user_id]));
     const playerRows = (event.players || []).map((p,i)=>({
       id: cloud.playerIds[p.id],
       event_id: cloud.eventId,
       display_name: p.name,
+      user_id: p.userId || existingUserByPlayer[cloud.playerIds[p.id]] || ((p.isSelf || String(p.name||'').trim().toLowerCase()===String(profile?.name||'').trim().toLowerCase()) ? user.id : null),
       handicap_index: Number(p.hcp || 0),
       playing_handicap: Math.round(Number(p.hcp || 0)),
       sort_order: i
     }));
+    playerRows.forEach(row=>{if(row.user_id===user.id){const local=(event.players||[]).find(p=>cloud.playerIds[p.id]===row.id);if(local){local.userId=user.id;local.isSelf=true;local.claimed=true;local.avatarPath=profile?.avatarPath||local.avatarPath||''}}});
     if(playerRows.length){ res = await supabase.from('event_players').upsert(playerRows); throwIf(res.error); }
     await deleteStale('event_players','event_id',cloud.eventId,playerRows.map(x=>x.id));
 
@@ -292,20 +353,29 @@ export async function syncEvent(event, profile, { structure=true } = {}){
     }
   }
 
-  await syncScores(event,user.id);
+  await syncScores(event,user.id,{role:cloud.role||role||'admin'});
   await syncProfile(profile);
   cloud.synced=true;
   return cloud;
 }
 
-async function syncScores(event,userId){
+async function syncScores(event,userId,{role='admin'}={}){
   const cloud = ensureCloudIds(event);
   const confirmed = new Set(event.confirmedHoles || []);
   const playerGroup={};(event.groups||[]).forEach(g=>(g.playerIds||[]).forEach(pid=>playerGroup[pid]=g.id));
-  const isPlayerConfirmed=(pid,h)=>event.eventMode==='tournament'?new Set(event.groupConfirmedHoles?.[playerGroup[pid]]||[]).has(Number(h)):confirmed.has(Number(h));
+  const ownLocalIds=new Set((event.players||[]).filter(p=>p.isSelf||p.userId===userId).map(p=>p.id));
+  if(role!=='admin'&&ownLocalIds.size===0)return;
+  const selfMode=role!=='admin' && formatInfoForSync(event)!=='team';
+  const isPlayerConfirmed=(pid,h)=>{
+    const own=event.playerConfirmedHoles?.[pid]||[];
+    if(own.length||selfMode)return own.includes(Number(h));
+    return event.eventMode==='tournament'?new Set(event.groupConfirmedHoles?.[playerGroup[pid]]||[]).has(Number(h)):confirmed.has(Number(h));
+  };
 
   const scoreRows=[];
   Object.entries(event.scores || {}).forEach(([localPlayerId,holes])=>{
+    if(role!=='admin'&&!selfMode)return;
+    if(selfMode&&!ownLocalIds.has(localPlayerId)) return;
     const playerId=cloud.playerIds[localPlayerId];
     if(!playerId) return;
     Object.entries(holes || {}).forEach(([hole,score])=>{
@@ -324,15 +394,22 @@ async function syncScores(event,userId){
       });
     });
   });
-  const { data: existingScores, error: existingScoresError } = await supabase.from('scores').select('id,event_player_id,hole_number').eq('round_id',cloud.roundId);
-  throwIf(existingScoresError);
-  const scoreKeys=new Set(scoreRows.map(x=>`${x.event_player_id}:${x.hole_number}`));
-  const staleScores=(existingScores||[]).filter(x=>!scoreKeys.has(`${x.event_player_id}:${x.hole_number}`)).map(x=>x.id);
-  if(staleScores.length){ const { error }=await supabase.from('scores').delete().in('id',staleScores); throwIf(error); }
-  if(scoreRows.length){ const { error }=await supabase.from('scores').upsert(scoreRows,{onConflict:'round_id,event_player_id,hole_number'}); throwIf(error); }
+  const ownCloudPlayerIds=[...ownLocalIds].map(id=>cloud.playerIds[id]).filter(Boolean);
+  let existingScores=[];
+  if(role==='admin'||selfMode){
+    let existingScoresQuery=supabase.from('scores').select('id,event_player_id,hole_number').eq('round_id',cloud.roundId);
+    if(selfMode&&ownCloudPlayerIds.length)existingScoresQuery=existingScoresQuery.in('event_player_id',ownCloudPlayerIds);
+    const existingRes=await existingScoresQuery;throwIf(existingRes.error);existingScores=existingRes.data||[];
+    const scoreKeys=new Set(scoreRows.map(x=>`${x.event_player_id}:${x.hole_number}`));
+    const staleScores=existingScores.filter(x=>!scoreKeys.has(`${x.event_player_id}:${x.hole_number}`)).map(x=>x.id);
+    if(staleScores.length){ const { error }=await supabase.from('scores').delete().in('id',staleScores); throwIf(error); }
+    if(scoreRows.length){ const { error }=await supabase.from('scores').upsert(scoreRows,{onConflict:'round_id,event_player_id,hole_number'}); throwIf(error); }
+  }
 
   const teamScoreRows=[];
+  const ownTeamIds=new Set((event.players||[]).filter(p=>p.isSelf||p.userId===userId).map(p=>p.teamId).filter(Boolean));
   Object.entries(event.teamScores || {}).forEach(([localTeamId,holes])=>{
+    if(role!=='admin'&&ownTeamIds.size&&!ownTeamIds.has(localTeamId))return;
     const teamId=cloud.teamIds[localTeamId];
     if(!teamId) return;
     Object.entries(holes || {}).forEach(([hole,score])=>{
@@ -346,12 +423,15 @@ async function syncScores(event,userId){
         penalty_strokes: Number(stat.penaltyStrokes || 0),
         putts: stat.putts == null ? null : Number(stat.putts),
         sand_shots: stat.sandShots == null ? null : Number(stat.sandShots),
-        is_confirmed: confirmed.has(Number(hole)),
+        is_confirmed: (event.teamConfirmedHoles?.[localTeamId]||[]).length ? (event.teamConfirmedHoles[localTeamId]||[]).includes(Number(hole)) : confirmed.has(Number(hole)),
         entered_by: userId
       });
     });
   });
-  const { data: existingTeamScores, error: existingTeamError } = await supabase.from('team_scores').select('id,team_id,hole_number').eq('round_id',cloud.roundId);
+  let existingTeamQuery=supabase.from('team_scores').select('id,team_id,hole_number').eq('round_id',cloud.roundId);
+  const ownCloudTeamIds=[...ownTeamIds].map(id=>cloud.teamIds[id]).filter(Boolean);
+  if(role!=='admin'&&ownCloudTeamIds.length)existingTeamQuery=existingTeamQuery.in('team_id',ownCloudTeamIds);
+  const { data: existingTeamScores, error: existingTeamError } = await existingTeamQuery;
   throwIf(existingTeamError);
   const teamScoreKeys=new Set(teamScoreRows.map(x=>`${x.team_id}:${x.hole_number}`));
   const staleTeamScores=(existingTeamScores||[]).filter(x=>!teamScoreKeys.has(`${x.team_id}:${x.hole_number}`)).map(x=>x.id);
@@ -360,6 +440,7 @@ async function syncScores(event,userId){
 
   const driveRows=[];
   Object.entries(event.driveSelections || {}).forEach(([localTeamId,holes])=>{
+    if(role!=='admin'&&ownTeamIds.size&&!ownTeamIds.has(localTeamId))return;
     const teamId=cloud.teamIds[localTeamId];
     if(!teamId) return;
     Object.entries(holes || {}).forEach(([hole,localPlayerId])=>{
@@ -374,7 +455,9 @@ async function syncScores(event,userId){
       });
     });
   });
-  const { data: existingDrives, error: existingDrivesError } = await supabase.from('ambrose_drives').select('id,team_id,hole_number').eq('round_id',cloud.roundId);
+  let existingDriveQuery=supabase.from('ambrose_drives').select('id,team_id,hole_number').eq('round_id',cloud.roundId);
+  if(role!=='admin'&&ownCloudTeamIds.length)existingDriveQuery=existingDriveQuery.in('team_id',ownCloudTeamIds);
+  const { data: existingDrives, error: existingDrivesError } = await existingDriveQuery;
   throwIf(existingDrivesError);
   const driveKeys=new Set(driveRows.map(x=>`${x.team_id}:${x.hole_number}`));
   const staleDrives=(existingDrives||[]).filter(x=>!driveKeys.has(`${x.team_id}:${x.hole_number}`)).map(x=>x.id);
@@ -420,12 +503,26 @@ async function loadOneEvent(eventRow){
 
   const teamByPlayer={};
   (membersRes.data||[]).forEach(m=>teamByPlayer[m.event_player_id]=m.team_id);
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const linkedUserIds=[...new Set((playersRes.data||[]).map(p=>p.user_id).filter(Boolean))];
+  let publicProfileByUser={};
+  if(linkedUserIds.length){
+    const { data: publicProfiles, error: publicProfilesError } = await supabase.from('public_profiles').select('id,display_name,avatar_path').in('id',linkedUserIds);
+    throwIf(publicProfilesError);
+    publicProfileByUser=Object.fromEntries((publicProfiles||[]).map(x=>[x.id,x]));
+  }
+  let memberRole=null;
+  if(currentUser){const {data:member}=await supabase.from('event_members').select('role').eq('event_id',eventRow.id).eq('user_id',currentUser.id).maybeSingle();memberRole=member?.role||null;}
   const players=(playersRes.data||[]).map((p,i)=>({
     id:p.id,
     name:p.display_name,
     hcp:Number(p.playing_handicap ?? p.handicap_index ?? 0),
     tone:(i%6)+1,
-    teamId:teamByPlayer[p.id] || null
+    teamId:teamByPlayer[p.id] || null,
+    userId:p.user_id||null,
+    claimed:!!p.user_id,
+    isSelf:!!(currentUser&&p.user_id===currentUser.id),
+    avatarPath:p.user_id?(publicProfileByUser[p.user_id]?.avatar_path||''):''
   }));
   const teams=(teamsRes.data||[]).map(t=>({id:t.id,name:t.name,teamHcp:Number(t.handicap_allowance||0)}));
   const scores={}; players.forEach(p=>scores[p.id]={});
@@ -435,6 +532,9 @@ async function loadOneEvent(eventRow){
     playerStats[s.event_player_id] ||= {};
     playerStats[s.event_player_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0)};
   });
+  const playerConfirmedHoles={}; players.forEach(p=>playerConfirmedHoles[p.id]=[]);
+  (scoresRes.data||[]).filter(s=>s.is_confirmed).forEach(s=>{playerConfirmedHoles[s.event_player_id] ||= [];playerConfirmedHoles[s.event_player_id].push(Number(s.hole_number));});
+  Object.values(playerConfirmedHoles).forEach(arr=>arr.sort((a,b)=>a-b));
   const teamScores={}; teams.forEach(t=>teamScores[t.id]={});
   const teamStats={}; teams.forEach(t=>teamStats[t.id]={});
   (teamScoresRes.data||[]).forEach(s=>{
@@ -442,12 +542,17 @@ async function loadOneEvent(eventRow){
     teamStats[s.team_id] ||= {};
     teamStats[s.team_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0)};
   });
+  const teamConfirmedHoles={}; teams.forEach(t=>teamConfirmedHoles[t.id]=[]);
+  (teamScoresRes.data||[]).filter(s=>s.is_confirmed).forEach(s=>{teamConfirmedHoles[s.team_id] ||= [];teamConfirmedHoles[s.team_id].push(Number(s.hole_number));});
+  Object.values(teamConfirmedHoles).forEach(arr=>arr.sort((a,b)=>a-b));
   const driveSelections={}; teams.forEach(t=>driveSelections[t.id]={});
   (drivesRes.data||[]).forEach(d=>{ driveSelections[d.team_id] ||= {}; driveSelections[d.team_id][d.hole_number]=d.selected_player_id; });
   const confirmedHoles=[...new Set([...(scoresRes.data||[]),...(teamScoresRes.data||[])].filter(x=>x.is_confirmed).map(x=>x.hole_number))].sort((a,b)=>a-b);
   const holes=(holesRes.data||[]).map(h=>({number:h.hole_number,par:h.par,si:h.stroke_index,distance:h.distance_m||null}));
   const cloud={
     eventId:eventRow.id,
+    joinCode:eventRow.join_code||null,
+    role:memberRole||null,
     courseId:eventRow.course_id,
     teeId:round.tee_id,
     roundId:round.id,
@@ -480,7 +585,9 @@ async function loadOneEvent(eventRow){
     scores,
     teamScores,
     playerStats,
+    playerConfirmedHoles,
     teamStats,
+    teamConfirmedHoles,
     trackStats:!!round.format_settings?.track_stats,
     driveSelections,
     minDrives:Number(round.format_settings?.min_drives || 0),
@@ -488,7 +595,7 @@ async function loadOneEvent(eventRow){
     groupSize:Number(round.format_settings?.group_size || 4),
     startType:round.format_settings?.start_type || 'tee_times',
     groups,
-    activeGroupId:groups[0]?.id||null,
+    activeGroupId:(groups.find(g=>g.playerIds.includes(players.find(p=>p.isSelf)?.id))?.id||groups[0]?.id||null),
     groupConfirmedHoles,
     groupCurrentHoles,
     currentHole:round.current_hole || 1,

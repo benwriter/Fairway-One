@@ -962,3 +962,35 @@ html,body{
 .stats-row>span{text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:18px}
 .stats-row strong{font-size:12px}.stats-row small{display:block;margin-top:3px;color:var(--muted);font-size:8px}
 @media(max-width:390px){.hole-stat-controls{gap:6px;padding:9px}.hole-stat-item>div{grid-template-columns:30px 1fr 30px}.hole-stat-item button{min-height:32px}.stats-head,.stats-row{grid-template-columns:minmax(0,1.35fr) repeat(3,.55fr);gap:5px}}
+
+
+/* V8.1 profile photos + avatar alignment */
+.avatar,.profile-avatar,.profile-photo-preview{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+  line-height:1!important;
+  padding:0!important;
+  overflow:hidden;
+}
+.avatar img,.profile-avatar img,.profile-photo-preview img{
+  width:100%;height:100%;display:block;object-fit:cover;object-position:center;
+}
+.profile-photo-editor{display:grid;grid-template-columns:82px 1fr;gap:16px;align-items:center;margin:4px 0 22px;padding:16px;background:var(--sage-100);border-radius:20px}
+.profile-photo-preview{width:82px;height:82px;border-radius:24px;background:linear-gradient(145deg,#dfe8df,#f2eee4);font-family:Georgia,"Times New Roman",serif;font-size:25px;font-weight:700;color:var(--forest-900)}
+.profile-photo-editor strong{display:block;font-size:15px;margin-bottom:5px}.profile-photo-editor p{font-size:11px;line-height:1.45;color:var(--muted);margin:0 0 10px}.profile-photo-button{display:inline-flex!important;width:auto!important;cursor:pointer}.profile-photo-button input{display:none}.profile-photo-button.disabled{opacity:.5;pointer-events:none}
+
+/* V9 account-linked self scoring */
+.event-join-code{margin:12px 0 2px;padding:12px 14px;border-radius:16px;background:#f1f5ef;border:1px solid #dfe7dc;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center}
+.event-join-code span{font-size:7px;font-weight:900;letter-spacing:.1em;color:var(--muted)}
+.event-join-code strong{justify-self:end;font-family:Georgia,"Times New Roman",serif;font-size:18px;letter-spacing:.12em;color:var(--forest-900)}
+.event-join-code small{grid-column:1/-1;margin-top:5px;color:var(--muted);font-size:8px;line-height:1.4}
+.claim-player-card{padding:18px;border-radius:18px;background:var(--sage-100);border:1px solid #dfe7dc;text-align:left}
+.claim-player-card h3{font-family:Georgia,"Times New Roman",serif;font-size:22px;font-weight:400;margin:5px 0 8px}
+.claim-player-card p{font-size:10px;line-height:1.5;color:var(--muted);margin:0 0 14px}
+.claim-player-list{display:grid;gap:9px;margin:14px 0}
+.claim-player-option{width:100%;border:1px solid var(--line);background:#fff;border-radius:17px;padding:11px;display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:11px;align-items:center;text-align:left;color:inherit}
+.claim-player-option>span{min-width:0}.claim-player-option strong{display:block;font-size:12px}.claim-player-option small{display:block;margin-top:3px;color:var(--muted);font-size:9px}.claim-player-option b{font-size:9px;color:var(--forest-700);white-space:nowrap}
+.my-group-pill{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 12px;border-radius:12px;background:#edf3ec;color:var(--forest-800);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
+.self-score-note{margin:10px 0 0;color:var(--muted);font-size:9px;line-height:1.45}

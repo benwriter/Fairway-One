@@ -1,19 +1,33 @@
-# Fairway One V8
+# Fairway One V9
 
-Fairway One V8 expands the app from social rounds into fuller tournament and player-stat workflows.
+Fairway One V9 makes cloud events account-linked and gives each golfer their own scorecard while preserving shared team scoring where the format requires it.
 
-## V8 highlights
+## V9 highlights
+- **Individual golf is self-scoring by default.** A signed-in golfer sees and edits their own score and personal stats while the live leaderboard continues to use everybody's scores.
+- **Join codes** are generated for cloud events. Golfers can choose **Join an event**, enter the organiser's code, then claim their player entry once.
+- The claimed player entry links to the golfer's Fairway One account, profile photo, handicap and tournament group.
+- **Personal stats stay personal.** Putts, sand shots and penalty strokes are entered only on the signed-in golfer's individual card.
+- **Shared-ball formats stay shared.** Ambrose, Foursomes, Greensomes and Chapman use the team's scorecard. A linked team member can enter the team score and optional team stats.
+- **Shamble keeps individual scoring** while the selected drive remains a shared team input.
+- Mixed-format **Build Your Round** supports switching between personal and shared-team scoring hole by hole without losing the golfer's progress.
+- Tournament golfers automatically open their assigned scoring group after claiming their player entry.
+- Organisers retain an admin/group-scoring fallback for exceptional cases.
+- A golfer's own completed card is treated as complete in their personal Round History even if the wider tournament is still running.
+- Public player profile data is limited to display name and avatar path so linked golfers' profile photos can appear in scoring and leaderboards.
+
+## Existing V8 features retained
 - Tournament Mode supports up to **72 players**.
-- A 72-player shotgun can be split into **18 groups of four**, with a starting hole assigned to every group.
-- Tee-time tournaments can still use groups of 2, 3 or 4.
-- Optional **Track round stats** records putts, sand shots and penalty strokes hole by hole.
-- A **Stats** tab totals those figures at the end of the round.
-- Penalty strokes are tracked for statistics only; gross score entry should already include the penalty.
-- The Fairway One **Course Library** lets golfers select public community courses and tees.
-- A signed-in golfer can enter a course once and choose **Share this course with Fairway One** so it becomes selectable by other users.
-- Community course records remain editable by their owner; the schema also supports future verified/official course records.
-- Hole setup now labels the two values clearly as **Par** and **Index**.
-- Existing V7 features remain, including Build Your Round, event points, one-team Ambrose, side-score views and cloud scoring.
+- A 72-player shotgun can use **18 groups of four**, with a starting hole assigned to every group.
+- Tee-time tournaments can use groups of 2, 3 or 4.
+- Optional stats track putts, sand shots and penalty strokes.
+- Shared Fairway One Course Library for public community courses and tees.
+- Community course ownership plus groundwork for Verified and Official course records.
+- Hole setup clearly labels **Par** and **Index**.
+- One-team Ambrose, side-score views, Build Your Round, event points and realtime cloud scoring remain available.
+- Profile photos use Supabase Storage, with centred initials as the fallback avatar.
 
-## Backend
-Supabase now stores optional putts and sand-shot stats alongside the existing penalty-stroke field. Public course, tee and hole records are readable by all app users, while writes remain protected by ownership/RLS.
+## Cloud security model
+- Event members can read the event and leaderboard data they have joined.
+- Individual score writes are restricted to the linked player's own score row unless the caller is an event admin.
+- Shared team-score and Ambrose-drive writes are restricted to members of that team unless the caller is an event admin.
+- Profile photos and basic public profile display data are separated from private profile information.
