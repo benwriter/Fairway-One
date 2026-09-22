@@ -1,7 +1,7 @@
 {
   "name": "Fairway One",
   "short_name": "Fairway One",
-  "description": "Professional golf competition platform with flexible scoring formats and live event tools.",
+  "description": "Golf scoring, flexible competition formats, round history and live event tools.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

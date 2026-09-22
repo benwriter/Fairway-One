@@ -66,7 +66,8 @@ export async function syncProfile(profile){
     id: user.id,
     display_name: profile.name || 'Golfer',
     home_club: profile.homeClub || null,
-    handicap_index: Number(profile.hcp ?? 0)
+    handicap_index: Number(profile.hcp ?? 0),
+    country_code: profile.countryCode || 'AU'
   };
   const { data, error } = await supabase.from('profiles').upsert(row).select().single();
   throwIf(error);
@@ -111,7 +112,7 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       id: cloud.courseId,
       owner_id: user.id,
       name: event.course?.name || 'Course',
-      country: 'Australia',
+      country: ({AU:'Australia',NZ:'New Zealand',US:'United States',CA:'Canada',GB:'United Kingdom'})[profile?.countryCode] || 'Australia',
       is_public: false
     }); throwIf(res.error);
 

@@ -38,7 +38,7 @@ export const FORMAT_LIBRARY = {
   skins: {
     name: 'Skins', short: 'Skins', category: 'Side game', entry: 'individual', team: false,
     description: 'Win a skin by posting the unique low net score on a hole.',
-    how: 'A player wins the hole’s skin only if they have the unique best net score. Tied holes carry the skin forward in this prototype.',
+    how: 'A player wins the hole’s skin only if they have the unique best net score. Tied holes carry the skin forward in Fairway One.',
     minPlayers: 2, maxPlayers: 8
   },
   fourball_stableford: {
@@ -98,7 +98,7 @@ export const FORMAT_LIBRARY = {
   shamble: {
     name: 'Shamble', short: 'Shamble', category: 'Teams', entry: 'individual', team: true,
     description: 'Select the best drive, then everyone plays their own ball in.',
-    how: 'Each team selects a drive. From that position all team members play their own ball to the hole. This prototype counts the best net score for the team and tracks the selected drive.',
+    how: 'Each team selects a drive. From that position all team members play their own ball to the hole. Fairway One counts the best net score for the team and tracks the selected drive.',
     minPlayers: 4, maxPlayers: 8, tracksDrive: true
   }
 };
