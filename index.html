@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Fairway One" />
   <meta name="description" content="Fairway One — flexible golf competitions, live scoring and professional event tools." />
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" href="/icon-192.png" type="image/png" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="manifest" href="/manifest.json?v=42" />
+  <link rel="icon" href="/icon-192.png?v=42" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=42" />
+  <link rel="stylesheet" href="/styles.css?v=42" />
   <title>Fairway One</title>
 </head>
 <body>
@@ -30,22 +30,22 @@
         <span><i>✓</i> Ambrose drive tracking and team scoring</span>
         <span><i>✓</i> Built to connect to Fairway One's own Supabase backend</span>
       </div>
-      <div class="prototype-badge">FAIRWAY ONE · FUNCTIONAL PROTOTYPE V4.1</div>
+      <div class="prototype-badge">FAIRWAY ONE · FUNCTIONAL PROTOTYPE V4.2</div>
     </aside>
 
     <div class="phone-shell" id="phoneShell">
       <div class="app-scroll" id="app"></div>
       <nav class="bottom-nav" id="bottomNav" aria-label="Primary navigation">
-        <button data-tab="home" class="nav-item active"><span class="nav-icon">⌂</span><span>Home</span></button>
-        <button data-tab="play" class="nav-item"><span class="nav-icon">⚑</span><span>Play</span></button>
-        <button data-tab="events" class="nav-item"><span class="nav-icon">◫</span><span>Events</span></button>
-        <button data-tab="leaderboard" class="nav-item"><span class="nav-icon">▥</span><span>Scores</span></button>
-        <button data-tab="profile" class="nav-item"><span class="nav-icon">◉</span><span>More</span></button>
+        <button data-tab="home" class="nav-item active"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></svg></span><span>Home</span></button>
+        <button data-tab="play" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3"/><path d="M6 4h10l-2.5 3L16 10H6"/></svg></span><span>Play</span></button>
+        <button data-tab="events" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M7.5 14h3M13.5 14h3M7.5 17.5h3"/></svg></span><span>Events</span></button>
+        <button data-tab="leaderboard" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V12M12 20V5M19 20V9"/><path d="M3 20h18"/></svg></span><span>Scores</span></button>
+        <button data-tab="profile" class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 21c.6-4 3.2-6 7-6s6.4 2 7 6"/></svg></span><span>More</span></button>
       </nav>
       <div id="modalRoot"></div>
       <div id="toastRoot" class="toast-root"></div>
     </div>
   </div>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="/app.js?v=42"></script>
 </body>
 </html>

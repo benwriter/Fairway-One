@@ -212,3 +212,205 @@ button{transition:transform .08s ease,background-color .15s ease,border-color .1
   .course-grid{grid-template-columns:repeat(2,1fr)}
   .nav-item{font-size:9px}.nav-icon{font-size:26px}
 }
+
+
+/* V4.2 — decisive mobile-first scale pass */
+html{
+  -webkit-text-size-adjust:100%;
+  touch-action:manipulation;
+}
+body,.phone-shell,.app-scroll,.screen{
+  touch-action:manipulation;
+}
+button,a,input,select,textarea,[role="button"],.quick-card,.learn-card,.guide-button{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+
+@media(max-width:940px){
+  .screen{padding-left:22px;padding-right:22px;padding-bottom:40px}
+  .welcome{padding:36px 3px 22px}
+  .welcome h1{font-size:42px;line-height:1.04;margin:10px 0 8px}
+  .page-title{font-size:40px;line-height:1.06}
+  .page-intro{padding:34px 3px 21px}
+  .eyebrow,.desktop-kicker{font-size:13px;letter-spacing:.18em}
+  .subtle,.body-copy{font-size:15px;line-height:1.6}
+  .section{margin-top:31px}
+  .section-head{margin-bottom:15px}
+  .section-head h3{font-size:27px}
+  .text-btn{font-size:13px;min-height:48px;padding:12px 4px}
+
+  .hero-card{padding:26px;border-radius:32px}
+  .live-pill,.status-pill{font-size:11px;padding:9px 12px}
+  .hero-round-id{font-size:11px}
+  .hero-main{margin-top:27px}
+  .hero-main h2{font-size:36px;line-height:1.07;margin:9px 0 10px}
+  .hero-main p{font-size:14px;line-height:1.5}
+  .hero-meta{gap:9px;margin-top:19px}
+  .hero-meta span{font-size:10px;padding:8px 11px}
+  .hero-bottom{gap:11px;margin-top:24px}
+  .hero-stat{padding:15px;border-radius:18px}
+  .hero-stat span,.mini-label{font-size:10px}
+  .hero-stat strong{font-size:31px;margin-top:7px}
+  .hero-actions{gap:11px;margin-top:6px}
+
+  .primary-btn,.secondary-btn,.danger-btn,.ghost-btn{
+    min-height:62px;
+    padding:18px 20px;
+    border-radius:18px;
+    font-size:16px;
+    line-height:1.15;
+  }
+  .small-btn{min-height:52px;font-size:13px;padding:14px 16px;border-radius:14px}
+  .icon-button{width:54px;height:54px;border-radius:16px}
+  .icon-button svg,.line-icon svg{width:25px;height:25px}
+
+  .quick-grid,.learn-grid{gap:14px}
+  .quick-card{padding:20px;min-height:154px;border-radius:24px}
+  .quick-card .icon-wrap,.learn-card .learn-icon{width:52px;height:52px;border-radius:16px;margin-bottom:14px}
+  .quick-card .icon-wrap svg,.learn-card .learn-icon svg{width:27px;height:27px}
+  .quick-card span{font-size:11px}
+  .quick-card strong{font-size:28px;margin-top:8px}
+  .quick-card small{font-size:11px;line-height:1.5}
+  .learn-card{padding:19px;min-height:186px;border-radius:23px}
+  .learn-card strong{font-size:22px}
+  .learn-card small{font-size:11px;line-height:1.55}
+  .learn-card b{font-size:10px}
+
+  .event-card{padding:20px;border-radius:23px}
+  .event-card h4{font-size:25px}
+  .event-card p{font-size:12px;line-height:1.5}
+  .event-tags span{font-size:9px;padding:7px 9px}
+  .empty-card{padding:30px 22px;border-radius:24px}
+  .empty-card h3{font-size:25px}
+  .empty-card p{font-size:13px;line-height:1.55}
+
+  .play-header{padding:23px;border-radius:30px;margin-top:18px}
+  .hole-nav{grid-template-columns:62px 1fr 62px}
+  .hole-nav button{width:60px;height:60px;border-radius:17px;font-size:30px}
+  .hole-centre span{font-size:11px}
+  .hole-centre strong{font-size:60px;margin-top:6px}
+  .hole-info{gap:9px;margin-top:19px}
+  .hole-info div{padding:14px 7px;border-radius:15px}
+  .hole-info span{font-size:9px}
+  .hole-info strong{font-size:22px}
+  .format-banner{margin-top:15px;padding:16px 17px;border-radius:19px}
+  .format-banner span{font-size:9px}
+  .format-banner strong{font-size:21px}
+  .format-banner button{min-height:52px;font-size:12px;padding:12px 14px}
+
+  .score-section{margin-top:26px}
+  .score-head{margin-bottom:14px}
+  .score-head h2{font-size:33px;line-height:1.06}
+  .sync-pill{font-size:10px}
+  .score-list{border-radius:25px}
+  .score-row{
+    grid-template-columns:54px minmax(0,1fr);
+    gap:13px;
+    padding:19px;
+  }
+  .avatar{width:54px;height:54px;border-radius:18px;font-size:14px}
+  .avatar.small{width:40px;height:40px;border-radius:13px;font-size:11px}
+  .player-copy strong{font-size:16px;line-height:1.2}
+  .player-copy span{font-size:11px;line-height:1.45;margin-top:5px}
+  .score-control{
+    grid-column:1/-1;
+    width:100%;
+    grid-template-columns:66px minmax(96px,1fr) 66px 54px;
+    gap:10px;
+    margin-top:7px;
+  }
+  .score-control button{height:60px;min-width:60px;border-radius:17px;font-size:30px;font-weight:750}
+  .score-control .clear-score{font-size:18px}
+  .score-value{height:70px;border-radius:18px}
+  .score-value strong{font-size:31px}
+  .score-value.empty strong{font-size:23px}
+  .score-value span{font-size:9px;margin-top:4px}
+  .hole-actions{gap:12px;margin-top:17px}
+  .mini-impact{padding:18px;border-radius:22px;margin-top:19px}
+  .mini-impact .impact-grid{gap:11px;margin-top:13px}
+  .impact-item{padding:14px;border-radius:16px}
+  .impact-item span{font-size:9px}
+  .impact-item strong{font-size:21px}
+  .impact-item small{font-size:10px}
+
+  .segment-tabs{gap:7px;padding:6px;border-radius:18px;margin:17px 0}
+  .segment-tabs button{min-height:56px;font-size:13px;border-radius:14px}
+  .leaderboard{border-radius:25px}
+  .leader-head,.leader-row{grid-template-columns:44px minmax(0,1fr) 54px 84px;gap:10px}
+  .leader-head{font-size:9px;padding:14px 16px}
+  .leader-row{padding:17px 16px}
+  .pos{font-size:21px}
+  .pos.first{width:38px;height:38px}
+  .leader-person{gap:12px}
+  .leader-person strong{font-size:14px}
+  .leader-person span{font-size:10px}
+  .leader-thru{font-size:12px}
+  .leader-score{font-size:25px}
+  .match-card{padding:19px;border-radius:22px}
+  .match-card strong{font-size:20px}
+  .match-card span{font-size:9px}
+  .match-result{font-size:13px}
+
+  .profile-hero{padding-top:34px}
+  .profile-hero h1{font-size:37px}
+  .profile-hero p{font-size:12px}
+  .profile-avatar{width:78px;height:78px;border-radius:25px;font-size:27px}
+  .stat-card{padding:17px;border-radius:20px}
+  .stat-card span{font-size:9px}
+  .stat-card strong{font-size:30px}
+
+  .field label{font-size:11px}
+  .field input,.field select,.field textarea,
+  .player-edit-row input,.player-edit-row select,
+  .hole-edit input,.drive-select select{
+    min-height:56px;
+    font-size:17px;
+    padding:15px;
+    border-radius:14px;
+  }
+  .form-section h3{font-size:24px}
+  .toggle-card{padding:17px;border-radius:16px}
+  .toggle-card strong{font-size:14px}
+  .toggle-card span{font-size:11px}
+  .modal-title-row h2{font-size:35px}
+  .modal-close{width:54px;height:54px;border-radius:16px}
+  .modal-sheet{padding:21px 22px calc(36px + env(safe-area-inset-bottom))}
+  .guide-format{padding:19px;border-radius:19px}
+  .guide-number{width:46px;height:46px;border-radius:14px;font-size:12px}
+  .guide-format h3{font-size:24px}
+  .guide-format p{font-size:12px}
+  .guide-status{font-size:9px}
+  .rules-list article{padding:16px;border-radius:17px}
+  .rules-list h3{font-size:20px}
+  .rules-list p,.official-rules-card p,.info-callout p{font-size:12px}
+  .official-links a{font-size:14px;min-height:58px;padding:16px 15px}
+  .muted-note,.course-note,.rules-disclaimer{font-size:11px;line-height:1.6}
+
+  .app-scroll{padding-bottom:132px}
+  .bottom-nav{
+    height:120px;
+    padding:10px 8px calc(13px + env(safe-area-inset-bottom));
+  }
+  .nav-item{font-size:11.5px;gap:6px;min-height:82px;border-radius:18px}
+  .nav-icon{width:58px;height:54px;border-radius:17px;font-size:0}
+  .nav-icon svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
+  .nav-item.active .nav-icon{background:#dfe9e2;box-shadow:inset 0 0 0 1px rgba(9,49,34,.05)}
+  .toast-root{bottom:132px}
+  .toast{font-size:13px;padding:15px 17px}
+}
+
+@media(max-width:390px){
+  .screen{padding-left:18px;padding-right:18px}
+  .welcome h1{font-size:39px}
+  .page-title{font-size:38px}
+  .hero-card{padding:23px}
+  .hero-main h2{font-size:33px}
+  .score-row{padding:17px}
+  .score-control{grid-template-columns:60px minmax(90px,1fr) 60px 48px}
+  .score-control button{height:58px;min-width:58px}
+  .bottom-nav{height:116px}
+  .nav-icon{width:52px;height:49px}
+  .nav-icon svg{width:31px;height:31px}
+  .nav-item{font-size:10.5px}
+}
