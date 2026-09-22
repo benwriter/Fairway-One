@@ -74,18 +74,50 @@ export async function syncProfile(profile){
   return data;
 }
 
+export async function loadCourseLibrary(){
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id,name,city,state_region,country,is_verified,source_type,course_tees(id,name,course_rating,slope_rating,par_total,holes(hole_number,par,stroke_index,distance_m))')
+    .eq('is_public',true)
+    .order('name');
+  throwIf(error);
+  return (data || []).map(course=>({
+    id:course.id,
+    name:course.name,
+    city:course.city || '',
+    stateRegion:course.state_region || '',
+    country:course.country || '',
+    verified:!!course.is_verified,
+    sourceType:course.source_type || 'community',
+    tees:(course.course_tees || []).map(tee=>({
+      id:tee.id,
+      name:tee.name,
+      courseRating:tee.course_rating,
+      slopeRating:tee.slope_rating,
+      parTotal:tee.par_total,
+      holes:(tee.holes || []).sort((a,b)=>a.hole_number-b.hole_number).map(h=>({
+        number:h.hole_number,par:h.par,si:h.stroke_index,distance:h.distance_m||null
+      }))
+    }))
+  })).filter(course=>course.tees.length);
+}
+
 function ensureCloudIds(event){
   event.cloud ||= {};
   event.cloud.eventId ||= uuid();
-  event.cloud.courseId ||= uuid();
-  event.cloud.teeId ||= uuid();
+  if(event.course?.libraryCourseId) event.cloud.courseId=event.course.libraryCourseId;
+  else event.cloud.courseId ||= uuid();
+  if(event.course?.libraryTeeId) event.cloud.teeId=event.course.libraryTeeId;
+  else event.cloud.teeId ||= uuid();
   event.cloud.roundId ||= uuid();
   event.cloud.playerIds ||= {};
   event.cloud.teamIds ||= {};
   event.cloud.segmentIds ||= {};
+  event.cloud.groupIds ||= {};
   (event.players || []).forEach(p => event.cloud.playerIds[p.id] ||= uuid());
   (event.teams || []).forEach(t => event.cloud.teamIds[t.id] ||= uuid());
   (event.customSegments || []).forEach(seg => event.cloud.segmentIds[seg.id] ||= uuid());
+  (event.groups || []).forEach(g => event.cloud.groupIds[g.id] ||= uuid());
   return event.cloud;
 }
 
@@ -108,30 +140,34 @@ export async function syncEvent(event, profile, { structure=true } = {}){
 
   if(structure){
     let res;
-    res = await supabase.from('courses').upsert({
-      id: cloud.courseId,
-      owner_id: user.id,
-      name: event.course?.name || 'Course',
-      country: ({AU:'Australia',NZ:'New Zealand',US:'United States',CA:'Canada',GB:'United Kingdom'})[profile?.countryCode] || 'Australia',
-      is_public: false
-    }); throwIf(res.error);
+    const usingLibraryCourse=!!event.course?.libraryCourseId;
+    if(!usingLibraryCourse){
+      res = await supabase.from('courses').upsert({
+        id: cloud.courseId,
+        owner_id: user.id,
+        name: event.course?.name || 'Course',
+        country: ({AU:'Australia',NZ:'New Zealand',US:'United States',CA:'Canada',GB:'United Kingdom'})[profile?.countryCode] || 'Australia',
+        is_public: !!event.course?.saveToLibrary,
+        source_type: 'community'
+      }); throwIf(res.error);
 
-    res = await supabase.from('course_tees').upsert({
-      id: cloud.teeId,
-      course_id: cloud.courseId,
-      name: event.course?.tee || 'White',
-      par_total: (event.course?.holes || []).reduce((s,h)=>s+Number(h.par||0),0)
-    }); throwIf(res.error);
+      res = await supabase.from('course_tees').upsert({
+        id: cloud.teeId,
+        course_id: cloud.courseId,
+        name: event.course?.tee || 'White',
+        par_total: (event.course?.holes || []).reduce((s,h)=>s+Number(h.par||0),0)
+      }); throwIf(res.error);
 
-    const courseHoles = (event.course?.holes || []).map(h=>({
-      tee_id: cloud.teeId,
-      hole_number: h.number,
-      par: h.par,
-      stroke_index: h.si,
-      distance_m: h.distance || null
-    }));
-    if(courseHoles.length){
-      res = await supabase.from('holes').upsert(courseHoles,{onConflict:'tee_id,hole_number'}); throwIf(res.error);
+      const courseHoles = (event.course?.holes || []).map(h=>({
+        tee_id: cloud.teeId,
+        hole_number: h.number,
+        par: h.par,
+        stroke_index: h.si,
+        distance_m: h.distance || null
+      }));
+      if(courseHoles.length){
+        res = await supabase.from('holes').upsert(courseHoles,{onConflict:'tee_id,hole_number'}); throwIf(res.error);
+      }
     }
 
     res = await supabase.from('events').upsert({
@@ -142,7 +178,8 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       tee_time: timeForDb(event.teeTime),
       course_id: cloud.courseId,
       status: statusToDb(event.status),
-      hole_count: event.course?.holes?.length || 18
+      hole_count: event.course?.holes?.length || 18,
+      event_mode: event.eventMode || 'round'
     }); throwIf(res.error);
 
     res = await supabase.from('event_members').upsert({
@@ -162,7 +199,28 @@ export async function syncEvent(event, profile, { structure=true } = {}){
     if(playerRows.length){ res = await supabase.from('event_players').upsert(playerRows); throwIf(res.error); }
     await deleteStale('event_players','event_id',cloud.eventId,playerRows.map(x=>x.id));
 
-    const activeTeams = (event.teams || []).filter(t => (event.players || []).some(p=>p.teamId===t.id));
+
+    const groupRows = event.eventMode === 'tournament' ? (event.groups || []).map((g,i)=>({
+      id: cloud.groupIds[g.id] || (cloud.groupIds[g.id]=uuid()),
+      event_id: cloud.eventId,
+      name: g.name || `Group ${i+1}`,
+      sort_order: i,
+      starting_hole: Number(g.startingHole || 1),
+      tee_time: timeForDb(g.teeTime || event.teeTime),
+      current_hole: Math.max(1,Math.min(36,Number(event.groupCurrentHoles?.[g.id] || 1))),
+      status: (event.groupConfirmedHoles?.[g.id] || []).length >= 18 ? 'completed' : ((event.groupConfirmedHoles?.[g.id] || []).length ? 'live' : 'not_started')
+    })) : [];
+    if(groupRows.length){ res = await supabase.from('event_groups').upsert(groupRows); throwIf(res.error); }
+    await deleteStale('event_groups','event_id',cloud.eventId,groupRows.map(x=>x.id));
+    if(groupRows.length){
+      const groupIds=groupRows.map(x=>x.id);
+      res = await supabase.from('event_group_members').delete().in('group_id',groupIds); throwIf(res.error);
+      const memberRows=[];
+      (event.groups || []).forEach(g=>(g.playerIds||[]).forEach((pid,pos)=>{if(cloud.playerIds[pid]&&cloud.groupIds[g.id])memberRows.push({group_id:cloud.groupIds[g.id],event_player_id:cloud.playerIds[pid],position:pos+1})}));
+      if(memberRows.length){ res=await supabase.from('event_group_members').insert(memberRows); throwIf(res.error); }
+    }
+
+    const activeTeams = event.eventMode==='tournament' ? [] : (event.teams || []).filter(t => (event.players || []).some(p=>p.teamId===t.id));
     const teamRows = activeTeams.map((t,i)=>({
       id: cloud.teamIds[t.id],
       event_id: cloud.eventId,
@@ -191,7 +249,7 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       round_number: 1,
       format_key: dbFormat(event.format),
       tee_id: cloud.teeId,
-      format_settings: { min_drives: Number(event.minDrives || 0) },
+      format_settings: { min_drives: Number(event.minDrives || 0), ambrose_mode: event.ambroseMode || null, group_size: Number(event.groupSize || 0), start_type: event.startType || null, track_stats: !!event.trackStats },
       status: event.status === 'complete' ? 'completed' : 'live',
       current_hole: Math.max(1,Math.min(36,Number(event.currentHole || 1))),
       started_at: event.createdAt || new Date().toISOString(),
@@ -228,6 +286,10 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       completed_at: completedAt
     }).eq('id',cloud.roundId);
     throwIf(error);
+    if(event.eventMode==='tournament' && event.groups?.length){
+      const rows=event.groups.map((g,i)=>({id:cloud.groupIds[g.id] || (cloud.groupIds[g.id]=uuid()),event_id:cloud.eventId,name:g.name||`Group ${i+1}`,sort_order:i,starting_hole:Number(g.startingHole||1),tee_time:timeForDb(g.teeTime||event.teeTime),current_hole:Math.max(1,Math.min(36,Number(event.groupCurrentHoles?.[g.id]||1))),status:(event.groupConfirmedHoles?.[g.id]||[]).length>=18?'completed':((event.groupConfirmedHoles?.[g.id]||[]).length?'live':'not_started')}));
+      const groupRes=await supabase.from('event_groups').upsert(rows);throwIf(groupRes.error);
+    }
   }
 
   await syncScores(event,user.id);
@@ -239,6 +301,8 @@ export async function syncEvent(event, profile, { structure=true } = {}){
 async function syncScores(event,userId){
   const cloud = ensureCloudIds(event);
   const confirmed = new Set(event.confirmedHoles || []);
+  const playerGroup={};(event.groups||[]).forEach(g=>(g.playerIds||[]).forEach(pid=>playerGroup[pid]=g.id));
+  const isPlayerConfirmed=(pid,h)=>event.eventMode==='tournament'?new Set(event.groupConfirmedHoles?.[playerGroup[pid]]||[]).has(Number(h)):confirmed.has(Number(h));
 
   const scoreRows=[];
   Object.entries(event.scores || {}).forEach(([localPlayerId,holes])=>{
@@ -246,13 +310,16 @@ async function syncScores(event,userId){
     if(!playerId) return;
     Object.entries(holes || {}).forEach(([hole,score])=>{
       if(score == null) return;
+      const stat=event.playerStats?.[localPlayerId]?.[hole] || {};
       scoreRows.push({
         round_id: cloud.roundId,
         event_player_id: playerId,
         hole_number: Number(hole),
         gross_strokes: Number(score),
-        penalty_strokes: 0,
-        is_confirmed: confirmed.has(Number(hole)),
+        penalty_strokes: Number(stat.penaltyStrokes || 0),
+        putts: stat.putts == null ? null : Number(stat.putts),
+        sand_shots: stat.sandShots == null ? null : Number(stat.sandShots),
+        is_confirmed: isPlayerConfirmed(localPlayerId,hole),
         entered_by: userId
       });
     });
@@ -270,12 +337,15 @@ async function syncScores(event,userId){
     if(!teamId) return;
     Object.entries(holes || {}).forEach(([hole,score])=>{
       if(score == null) return;
+      const stat=event.teamStats?.[localTeamId]?.[hole] || {};
       teamScoreRows.push({
         round_id: cloud.roundId,
         team_id: teamId,
         hole_number: Number(hole),
         gross_strokes: Number(score),
-        penalty_strokes: 0,
+        penalty_strokes: Number(stat.penaltyStrokes || 0),
+        putts: stat.putts == null ? null : Number(stat.putts),
+        sand_shots: stat.sandShots == null ? null : Number(stat.sandShots),
         is_confirmed: confirmed.has(Number(hole)),
         entered_by: userId
       });
@@ -323,7 +393,7 @@ async function loadOneEvent(eventRow){
   throwIf(roundError);
   if(!round) return null;
 
-  const [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes] = await Promise.all([
+  const [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes,groupsRes] = await Promise.all([
     eventRow.course_id ? supabase.from('courses').select('*').eq('id',eventRow.course_id).maybeSingle() : Promise.resolve({data:null,error:null}),
     round.tee_id ? supabase.from('course_tees').select('*').eq('id',round.tee_id).maybeSingle() : Promise.resolve({data:null,error:null}),
     supabase.from('round_holes').select('*').eq('round_id',round.id).order('hole_number'),
@@ -332,9 +402,10 @@ async function loadOneEvent(eventRow){
     supabase.from('scores').select('*').eq('round_id',round.id),
     supabase.from('team_scores').select('*').eq('round_id',round.id),
     supabase.from('ambrose_drives').select('*').eq('round_id',round.id),
-    supabase.from('round_segments').select('*').eq('round_id',round.id).order('sort_order')
+    supabase.from('round_segments').select('*').eq('round_id',round.id).order('sort_order'),
+    supabase.from('event_groups').select('*').eq('event_id',eventRow.id).order('sort_order')
   ]);
-  [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes].forEach(r=>throwIf(r.error));
+  [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes,groupsRes].forEach(r=>throwIf(r.error));
 
   let membersRes={data:[],error:null};
   const loadedTeamIds=(teamsRes.data||[]).map(x=>x.id);
@@ -342,6 +413,10 @@ async function loadOneEvent(eventRow){
     membersRes=await supabase.from('team_members').select('*').in('team_id',loadedTeamIds);
     throwIf(membersRes.error);
   }
+
+  let groupMembersRes={data:[],error:null};
+  const loadedGroupIds=(groupsRes.data||[]).map(x=>x.id);
+  if(loadedGroupIds.length){groupMembersRes=await supabase.from('event_group_members').select('*').in('group_id',loadedGroupIds);throwIf(groupMembersRes.error);}
 
   const teamByPlayer={};
   (membersRes.data||[]).forEach(m=>teamByPlayer[m.event_player_id]=m.team_id);
@@ -354,9 +429,19 @@ async function loadOneEvent(eventRow){
   }));
   const teams=(teamsRes.data||[]).map(t=>({id:t.id,name:t.name,teamHcp:Number(t.handicap_allowance||0)}));
   const scores={}; players.forEach(p=>scores[p.id]={});
-  (scoresRes.data||[]).forEach(s=>{ scores[s.event_player_id] ||= {}; scores[s.event_player_id][s.hole_number]=s.gross_strokes; });
+  const playerStats={}; players.forEach(p=>playerStats[p.id]={});
+  (scoresRes.data||[]).forEach(s=>{
+    scores[s.event_player_id] ||= {}; scores[s.event_player_id][s.hole_number]=s.gross_strokes;
+    playerStats[s.event_player_id] ||= {};
+    playerStats[s.event_player_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0)};
+  });
   const teamScores={}; teams.forEach(t=>teamScores[t.id]={});
-  (teamScoresRes.data||[]).forEach(s=>{ teamScores[s.team_id] ||= {}; teamScores[s.team_id][s.hole_number]=s.gross_strokes; });
+  const teamStats={}; teams.forEach(t=>teamStats[t.id]={});
+  (teamScoresRes.data||[]).forEach(s=>{
+    teamScores[s.team_id] ||= {}; teamScores[s.team_id][s.hole_number]=s.gross_strokes;
+    teamStats[s.team_id] ||= {};
+    teamStats[s.team_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0)};
+  });
   const driveSelections={}; teams.forEach(t=>driveSelections[t.id]={});
   (drivesRes.data||[]).forEach(d=>{ driveSelections[d.team_id] ||= {}; driveSelections[d.team_id][d.hole_number]=d.selected_player_id; });
   const confirmedHoles=[...new Set([...(scoresRes.data||[]),...(teamScoresRes.data||[])].filter(x=>x.is_confirmed).map(x=>x.hole_number))].sort((a,b)=>a-b);
@@ -369,11 +454,16 @@ async function loadOneEvent(eventRow){
     playerIds:Object.fromEntries(players.map(p=>[p.id,p.id])),
     teamIds:Object.fromEntries(teams.map(t=>[t.id,t.id])),
     segmentIds:Object.fromEntries((segmentsRes.data||[]).map(seg=>[seg.id,seg.id])),
+    groupIds:Object.fromEntries((groupsRes.data||[]).map(g=>[g.id,g.id])),
     completedAt:round.completed_at || null,
     synced:true
   };
 
   const customSegments=(segmentsRes.data||[]).map((seg,i)=>({id:seg.id,name:seg.name,format:localFormat(seg.format_key),holes:(seg.holes||[]).map(Number).sort((a,b)=>a-b),points:Number(seg.competition_points||1),settings:seg.settings||{}}));
+  const groupMembers={};(groupMembersRes.data||[]).forEach(m=>{groupMembers[m.group_id] ||= [];groupMembers[m.group_id].push(m)});Object.values(groupMembers).forEach(arr=>arr.sort((a,b)=>(a.position||0)-(b.position||0)));
+  const groups=(groupsRes.data||[]).map(g=>({id:g.id,name:g.name,playerIds:(groupMembers[g.id]||[]).map(m=>m.event_player_id),startingHole:Number(g.starting_hole||1),teeTime:timeFromDb(g.tee_time)}));
+  const groupConfirmedHoles={},groupCurrentHoles={};
+  groups.forEach(g=>{groupCurrentHoles[g.id]=Number((groupsRes.data||[]).find(x=>x.id===g.id)?.current_hole||1);const pids=new Set(g.playerIds);groupConfirmedHoles[g.id]=(holesRes.data||[]).map(h=>h.hole_number).filter(h=>{const rows=(scoresRes.data||[]).filter(x=>x.hole_number===h&&pids.has(x.event_player_id));return rows.length===g.playerIds.length&&rows.every(x=>x.is_confirmed)})});
 
   return {
     id:eventRow.id,
@@ -381,15 +471,26 @@ async function loadOneEvent(eventRow){
     date:eventRow.event_date,
     teeTime:timeFromDb(eventRow.tee_time),
     status:statusFromDb(eventRow.status),
+    eventMode:eventRow.event_mode || 'round',
     format:localFormat(round.format_key),
     customSegments,
-    course:{name:courseRes.data?.name || 'Course',tee:teeRes.data?.name || 'White',holes},
+    course:{name:courseRes.data?.name || 'Course',tee:teeRes.data?.name || 'White',holes,libraryCourseId:courseRes.data?.is_public?eventRow.course_id:null,libraryTeeId:courseRes.data?.is_public?round.tee_id:null,saveToLibrary:!!courseRes.data?.is_public},
     players,
     teams,
     scores,
     teamScores,
+    playerStats,
+    teamStats,
+    trackStats:!!round.format_settings?.track_stats,
     driveSelections,
     minDrives:Number(round.format_settings?.min_drives || 0),
+    ambroseMode:round.format_settings?.ambrose_mode || 'single',
+    groupSize:Number(round.format_settings?.group_size || 4),
+    startType:round.format_settings?.start_type || 'tee_times',
+    groups,
+    activeGroupId:groups[0]?.id||null,
+    groupConfirmedHoles,
+    groupCurrentHoles,
     currentHole:round.current_hole || 1,
     confirmedHoles,
     createdAt:eventRow.created_at,

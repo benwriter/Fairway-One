@@ -1,26 +1,19 @@
-# Fairway One — Version 6.1
+# Fairway One V8
 
-Fairway One is a mobile-first golf scoring and competition platform for anything from a solo social round to a managed multi-player event.
+Fairway One V8 expands the app from social rounds into fuller tournament and player-stat workflows.
 
-## V6 highlights
+## V8 highlights
+- Tournament Mode supports up to **72 players**.
+- A 72-player shotgun can be split into **18 groups of four**, with a starting hole assigned to every group.
+- Tee-time tournaments can still use groups of 2, 3 or 4.
+- Optional **Track round stats** records putts, sand shots and penalty strokes hole by hole.
+- A **Stats** tab totals those figures at the end of the round.
+- Penalty strokes are tracked for statistics only; gross score entry should already include the penalty.
+- The Fairway One **Course Library** lets golfers select public community courses and tees.
+- A signed-in golfer can enter a course once and choose **Share this course with Fairway One** so it becomes selectable by other users.
+- Community course records remain editable by their owner; the schema also supports future verified/official course records.
+- Hole setup now labels the two values clearly as **Par** and **Index**.
+- Existing V7 features remain, including Build Your Round, event points, one-team Ambrose, side-score views and cloud scoring.
 
-- Clean first-run state with no seeded rounds or placeholder golfers.
-- The home card shows **Ready to Play** until a round is actually in progress.
-- Active rounds automatically replace the ready card with live progress, current hole and leader preview.
-- **Recent rounds** shows the five most recent completed rounds with a result summary.
-- Country-aware handicap shortcuts. Australia uses Golf Australia’s official Daily Handicap Lookup.
-- Profile country is saved locally and in Fairway One Cloud.
-- Format cards keep labels such as **INDIVIDUAL** on one line.
-- Build Your Round remains available for custom multi-format competitions and segment points.
-- PWA install, local-first score storage, cloud sync and realtime scoring remain supported.
-
-## Upload
-
-Upload the contents of this folder to the root of the Fairway One repository. Vercel will redeploy from the connected branch.
-
-If Fairway One is installed on iPhone, removing and re-adding the Home Screen app after deployment is the quickest way to refresh cached PWA assets.
-
-
-## V6.1 changes
-- Homepage strapline changed to **PLAY · SCORE · COMPETE**.
-- Round History moved above the Format Engine on the homepage.
+## Backend
+Supabase now stores optional putts and sand-shot stats alongside the existing penalty-stroke field. Public course, tee and hole records are readable by all app users, while writes remain protected by ownership/RLS.
