@@ -1,39 +1,70 @@
-# Fairway One V9.1
+# Fairway One V12 — Tournament Ready
 
-V9.1 is a focused mobile polish release on top of V9.
+V12 keeps the V11 Elite Round experience intact and hardens the V10 tournament architecture for real event operations.
 
-- The Home profile badge now displays the golfer’s uploaded profile photo, with centred initials only as a fallback.
-- Start Round / setup sheets are locked to vertical scrolling so diagonal iOS swipes cannot make the sheet drift sideways.
-- Cache versions are bumped so installed PWAs receive the fixes promptly.
+## Tournament operations
 
-Fairway One V9 makes cloud events account-linked and gives each golfer their own scorecard while preserving shared team scoring where the format requires it.
+- **Tournament Control.** Organisers now have one command centre for registration, scoring locks, player/account readiness, card verification, official score corrections, announcements, spectator access, CSV export and final result publishing.
+- **Field readiness.** See how many entrants have linked accounts, completed 18 holes, are awaiting verification and have final signed cards.
+- **Registration control.** Close player registration once the field is set. Existing members can still resume their event, while new joins are blocked until registration reopens.
+- **Scoring lock.** Freeze player scoring at database-policy level. Organisers retain controlled correction access.
+- **Official corrections + audit trail.** Organiser score overrides require a reason and store before/after information in the event audit log.
+- **Player claim recovery.** An organiser can release an incorrect account/player link and allow the correct golfer to claim it again. Final cards must be reopened first.
+- **Tournament announcements.** Important or normal updates appear on player event passes and the spectator view.
+- **Publish / reopen results.** Publishing closes registration, locks scoring and marks the event and round complete. Incomplete cards or cards awaiting verification block publication.
+- **Results export.** Tournament Control can export a field CSV with H1–H18, gross, net, relation to par, Stableford and card state.
 
-## V9 highlights
-- **Individual golf is self-scoring by default.** A signed-in golfer sees and edits their own score and personal stats while the live leaderboard continues to use everybody's scores.
-- **Join codes** are generated for cloud events. Golfers can choose **Join an event**, enter the organiser's code, then claim their player entry once.
-- The claimed player entry links to the golfer's Fairway One account, profile photo, handicap and tournament group.
-- **Personal stats stay personal.** Putts, sand shots and penalty strokes are entered only on the signed-in golfer's individual card.
-- **Shared-ball formats stay shared.** Ambrose, Foursomes, Greensomes and Chapman use the team's scorecard. A linked team member can enter the team score and optional team stats.
-- **Shamble keeps individual scoring** while the selected drive remains a shared team input.
-- Mixed-format **Build Your Round** supports switching between personal and shared-team scoring hole by hole without losing the golfer's progress.
-- Tournament golfers automatically open their assigned scoring group after claiming their player entry.
-- Organisers retain an admin/group-scoring fallback for exceptional cases.
-- A golfer's own completed card is treated as complete in their personal Round History even if the wider tournament is still running.
-- Public player profile data is limited to display name and avatar path so linked golfers' profile photos can appear in scoring and leaderboards.
+## Live reliability
 
-## Existing V8 features retained
-- Tournament Mode supports up to **72 players**.
-- A 72-player shotgun can use **18 groups of four**, with a starting hole assigned to every group.
-- Tee-time tournaments can use groups of 2, 3 or 4.
-- Optional stats track putts, sand shots and penalty strokes.
-- Shared Fairway One Course Library for public community courses and tees.
-- Community course ownership plus groundwork for Verified and Official course records.
-- Hole setup clearly labels **Par** and **Index**.
-- One-team Ambrose, side-score views, Build Your Round, event points and realtime cloud scoring remain available.
-- Profile photos use Supabase Storage, with centred initials as the fallback avatar.
+- **Concurrent score protection.** An organiser device no longer rewrites the entire tournament field when it syncs. Only score rows actually changed on that organiser device are written.
+- **Server-owned group activity.** Tournament group status and last activity are updated server-side as confirmed scores arrive, reducing stale-device conflicts.
+- **Realtime operations.** Events, players, groups, announcements, scorecards and scoring tables participate in live updates.
+- **Offline recovery.** Pending cloud changes are persisted locally. Reconnect attempts flush local scoring changes before accepting a fresh remote state.
+- **Automatic live state.** The first tournament scoring activity can promote the event/round into live state server-side.
+- **Structural-change guard.** Once a tournament is live, Fairway One asks the organiser to lock scoring before changing field/group/course setup.
+- **Race-safe player claiming.** Two accounts attempting to claim the same player entry at the same moment cannot overwrite one another.
 
-## Cloud security model
-- Event members can read the event and leaderboard data they have joined.
-- Individual score writes are restricted to the linked player's own score row unless the caller is an event admin.
-- Shared team-score and Ambrose-drive writes are restricted to members of that team unless the caller is an event admin.
-- Profile photos and basic public profile display data are separated from private profile information.
+## Spectator experience
+
+Tournament organisers can issue a separate **spectator link + QR code**. It is deliberately different from the player join link.
+
+The public view exposes only tournament-safe information: event/course details, display names, handicaps, groups, confirmed scores, card status, announcements and live/final standings. It exposes no email addresses, account IDs, player join code or scoring controls. The spectator link can be disabled or rotated by the organiser.
+
+## Security model
+
+- Player scoring remains protected by Row Level Security.
+- Linked golfers can write only their own individual scores.
+- Team members can write only their shared team score where applicable.
+- Submitted/final scorecards remain locked.
+- The tournament scoring lock blocks ordinary score writes while allowing controlled organiser corrections.
+- Tournament audit rows are readable only by event managers and writable only by trusted server-side functions.
+- Admin tournament actions run through authenticated Edge Functions.
+- The spectator endpoint is read-only and uses a separate high-entropy spectator code.
+- New player join codes use a longer 12-character token.
+
+## V11 retained
+
+Elite live scoring, personal performance, Course Memory, Round Recap, course records, rival history, advanced stats, social side competitions, 16 standalone formats and Build Your Round remain included.
+
+## Before a major event
+
+V12 is feature-complete for the intended tournament workflow, but a production tournament should still have a dress rehearsal. Test at least 6–8 separate accounts/devices across multiple groups: join, claim, simultaneous score entry, temporary offline scoring, reconnect, marker verification, official correction, scoring lock, spectator view, publish results and CSV export.
+
+## Cache / storage
+
+V12 uses the `fairway-one-v12` service-worker cache and `fairwayOneV12` local-storage key. V11 and earlier local state is migrated forward.
+
+## Final event-day hardening pass
+
+The final V12 pass adds several protections that matter in a real field:
+
+- Tournaments are created in **Setup** state. Opening a scorecard does not prematurely freeze the event structure; the first synced score promotes the tournament to Live server-side.
+- The organiser command centre now includes an **Event-day preflight** for course/index integrity, valid groups, cloud/join-code readiness, linked-player coverage and pending-sync/connection warnings.
+- Tee-time groups are balanced automatically to avoid accidental one-player groups. Two-player grouping requires an even field.
+- Shotgun groups must have unique starting holes before the tournament can be saved.
+- Tournament stroke indexes are validated as a complete unique 1–18 set before saving.
+- Duplicate display names are blocked at tournament setup so players cannot accidentally claim an ambiguous roster entry.
+- Withdrawn, DQ and no-show players no longer block group completion; group state refreshes immediately when a competition status changes.
+- Final result publication now requires every **active** player scorecard to be final, not merely complete.
+- Organisers have an audited **Finalize card** fallback for a completed scorecard that has been checked outside the standard player/marker workflow, such as a verified paper card.
+- Spectator pages distinguish pre-event **Upcoming** state from Live and Final Results.

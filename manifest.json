@@ -1,7 +1,7 @@
 {
   "name": "Fairway One",
   "short_name": "Fairway One",
-  "description": "Golf scoring, flexible competition formats, round history and live event tools.",
+  "description": "Premium golf scoring for social rounds and tournament operations, with live scoring, verified cards and spectator results.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,19 +9,19 @@
   "theme_color": "#fbfaf5",
   "icons": [
     {
-      "src": "/icon-192.png?v=91",
+      "src": "/icon-192.png?v=121",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-maskable-512.png?v=91",
+      "src": "/icon-maskable-512.png?v=121",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icon-512.png?v=91",
+      "src": "/icon-512.png?v=121",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

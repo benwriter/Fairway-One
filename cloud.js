@@ -68,6 +68,65 @@ export async function claimEventPlayer(eventId,playerId){
   return data;
 }
 
+export async function submitScorecard(eventId,scope,targetId,markerPlayerId=null){
+  const { data, error } = await supabase.functions.invoke('scorecard-action',{body:{action:'submit',eventId,scope,targetId,markerPlayerId}});
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function verifyScorecard(cardId){
+  const { data, error } = await supabase.functions.invoke('scorecard-action',{body:{action:'verify',cardId}});
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function reopenScorecard(cardId){
+  const { data, error } = await supabase.functions.invoke('scorecard-action',{body:{action:'reopen',cardId}});
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function tournamentAdminAction(eventId,action,payload={}){
+  const { data, error } = await supabase.functions.invoke('tournament-admin',{body:{eventId,action,...payload}});
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function loadPublicTournament(code){
+  const response=await fetch(`${SUPABASE_URL}/functions/v1/tournament-public`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},
+    body:JSON.stringify({code:String(code||'').trim().toUpperCase()})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||data?.error)throw new Error(data?.error||'Live tournament view is unavailable.');
+  const x=data.event||{};
+  const players=(x.players||[]).map((p,i)=>({id:p.id,name:p.name,hcp:Number(p.hcp||0),tone:(i%6)+1,teamId:null,claimed:true,competitionStatus:p.competitionStatus||'active'}));
+  const scores={};const playerConfirmedHoles={};
+  players.forEach(p=>{scores[p.id]={};playerConfirmedHoles[p.id]=[]});
+  (x.scores||[]).forEach(row=>{scores[row.playerId]||={};scores[row.playerId][row.hole]=row.gross;if(row.confirmed){playerConfirmedHoles[row.playerId]||=[];playerConfirmedHoles[row.playerId].push(Number(row.hole))}});
+  Object.values(playerConfirmedHoles).forEach(arr=>arr.sort((a,b)=>a-b));
+  const groups=(x.groups||[]).map(g=>({id:g.id,name:g.name,playerIds:g.playerIds||[],startingHole:Number(g.startingHole||1),teeTime:g.teeTime||x.teeTime||'07:00',status:g.status||'not_started',lastActivityAt:g.lastActivityAt||null}));
+  const groupConfirmedHoles={};const groupCurrentHoles={};
+  const playerById=Object.fromEntries(players.map(p=>[p.id,p]));
+  groups.forEach(g=>{const activeIds=(g.playerIds||[]).filter(pid=>(playerById[pid]?.competitionStatus||'active')==='active');const common=[];for(let h=1;h<=18;h++){if(activeIds.length&&activeIds.every(pid=>(playerConfirmedHoles[pid]||[]).includes(h)))common.push(h)}groupConfirmedHoles[g.id]=common;const start=Number(g.startingHole||1),order=Array.from({length:18},(_,i)=>((start-1+i)%18)+1),done=new Set(common);groupCurrentHoles[g.id]=order.find(h=>!done.has(h))||start});
+  const holeByNo=Object.fromEntries((x.course?.holes||[]).map(h=>[Number(h.number),h]));
+  const recentActivity=(x.scores||[]).filter(r=>r.confirmed).map(r=>{const h=holeByNo[Number(r.hole)],p=playerById[r.playerId];if(!h||!p)return null;const rel=Number(r.gross)-Number(h.par);const result=rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;return{at:r.updatedAt||'',type:'player',playerId:r.playerId,name:p.name,hole:Number(r.hole),score:Number(r.gross),par:Number(h.par),result}}).filter(Boolean).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,12);
+  return {
+    id:x.id,name:x.name,date:x.date,teeTime:x.teeTime||'07:00',status:x.status==='completed'?'complete':x.status==='draft'?'draft':'live',eventMode:'tournament',format:localFormat(x.format),
+    course:{name:x.course?.name||'Course',tee:x.course?.tee||'',holes:x.course?.holes||[]},players,teams:[],scores,teamScores:{},playerStats:{},teamStats:{},playerConfirmedHoles,teamConfirmedHoles:{},
+    trackStats:false,advancedStats:false,sideGames:x.formatSettings?.side_games||{ntpHole:0,ntpPlayerId:null,ldHole:0,ldPlayerId:null},driveSelections:{},minDrives:0,ambroseMode:'single',
+    groupSize:4,startType:groups.some(g=>Number(g.startingHole||1)!==1)?'shotgun':'tee_times',groups,activeGroupId:groups[0]?.id||null,groupConfirmedHoles,groupCurrentHoles,currentHole:1,confirmedHoles:[],
+    scorecards:(x.scorecards||[]).map(c=>({scope:'player',playerId:c.playerId,status:c.status,submittedAt:c.submittedAt,verifiedAt:c.verifiedAt})),recentActivity,announcements:x.announcements||[],
+    registrationOpen:false,scoringLocked:!!x.scoringLocked,resultsPublished:!!x.resultsPublished,spectatorEnabled:true,spectator:true,updatedAt:x.updatedAt||null,
+    cloud:{synced:false,spectator:true}
+  };
+}
+
 export async function loadProfile(){
   const { data: { user } } = await supabase.auth.getUser();
   if(!user) return null;
@@ -310,7 +369,7 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       round_number: 1,
       format_key: dbFormat(event.format),
       tee_id: cloud.teeId,
-      format_settings: { min_drives: Number(event.minDrives || 0), ambrose_mode: event.ambroseMode || null, group_size: Number(event.groupSize || 0), start_type: event.startType || null, track_stats: !!event.trackStats },
+      format_settings: { min_drives: Number(event.minDrives || 0), ambrose_mode: event.ambroseMode || null, group_size: Number(event.groupSize || 0), start_type: event.startType || null, track_stats: !!event.trackStats, advanced_stats: !!event.advancedStats, side_games: event.sideGames ? { ...event.sideGames, ntpPlayerId: event.sideGames.ntpPlayerId ? (cloud.playerIds[event.sideGames.ntpPlayerId] || event.sideGames.ntpPlayerId) : null, ldPlayerId: event.sideGames.ldPlayerId ? (cloud.playerIds[event.sideGames.ldPlayerId] || event.sideGames.ldPlayerId) : null } : null },
       status: event.status === 'complete' ? 'completed' : 'live',
       current_hole: Math.max(1,Math.min(36,Number(event.currentHole || 1))),
       started_at: event.createdAt || new Date().toISOString(),
@@ -341,16 +400,20 @@ export async function syncEvent(event, profile, { structure=true } = {}){
     await deleteStale('round_segments','round_id',cloud.roundId,segmentRows.map(x=>x.id));
   } else {
     const completedAt = event.status === 'complete' ? (event.cloud.completedAt ||= new Date().toISOString()) : null;
-    const { error } = await supabase.from('rounds').update({
+    let res = await supabase.from('rounds').update({
       status: event.status === 'complete' ? 'completed' : 'live',
       current_hole: Math.max(1,Math.min(36,Number(event.currentHole || 1))),
-      completed_at: completedAt
+      completed_at: completedAt,
+      updated_at: new Date().toISOString()
     }).eq('id',cloud.roundId);
-    throwIf(error);
-    if(event.eventMode==='tournament' && event.groups?.length){
-      const rows=event.groups.map((g,i)=>({id:cloud.groupIds[g.id] || (cloud.groupIds[g.id]=uuid()),event_id:cloud.eventId,name:g.name||`Group ${i+1}`,sort_order:i,starting_hole:Number(g.startingHole||1),tee_time:timeForDb(g.teeTime||event.teeTime),current_hole:Math.max(1,Math.min(36,Number(event.groupCurrentHoles?.[g.id]||1))),status:(event.groupConfirmedHoles?.[g.id]||[]).length>=18?'completed':((event.groupConfirmedHoles?.[g.id]||[]).length?'live':'not_started')}));
-      const groupRes=await supabase.from('event_groups').upsert(rows);throwIf(groupRes.error);
-    }
+    throwIf(res.error);
+    res = await supabase.from('events').update({
+      status: event.status === 'complete' ? 'completed' : 'live',
+      updated_at: new Date().toISOString()
+    }).eq('id',cloud.eventId);
+    throwIf(res.error);
+    // Do not rewrite tournament group state during live score sync. Group activity/status
+    // is maintained server-side so one organiser device cannot overwrite another group's progress.
   }
 
   await syncScores(event,user.id,{role:cloud.role||role||'admin'});
@@ -372,6 +435,30 @@ async function syncScores(event,userId,{role='admin'}={}){
     return event.eventMode==='tournament'?new Set(event.groupConfirmedHoles?.[playerGroup[pid]]||[]).has(Number(h)):confirmed.has(Number(h));
   };
 
+  if(role==='admin'&&event.eventMode==='tournament'){
+    const dirty=[...new Set(event._dirtyPlayerScores||[])];
+    for(const key of dirty){
+      const [localPlayerId,holeText]=String(key).split(':');
+      const hole=Number(holeText),playerId=cloud.playerIds[localPlayerId];
+      if(!playerId||!Number.isInteger(hole))continue;
+      const score=event.scores?.[localPlayerId]?.[hole];
+      if(score==null){
+        const { error }=await supabase.from('scores').delete().eq('round_id',cloud.roundId).eq('event_player_id',playerId).eq('hole_number',hole);throwIf(error);
+        continue;
+      }
+      const stat=event.playerStats?.[localPlayerId]?.[hole]||{};
+      const row={
+        round_id:cloud.roundId,event_player_id:playerId,hole_number:hole,gross_strokes:Number(score),
+        penalty_strokes:Number(stat.penaltyStrokes||0),putts:stat.putts==null?null:Number(stat.putts),sand_shots:stat.sandShots==null?null:Number(stat.sandShots),
+        fairway_result:stat.fairwayResult||null,green_in_regulation:stat.gir==null?null:!!stat.gir,up_and_down:stat.upAndDown==null?null:!!stat.upAndDown,
+        is_confirmed:isPlayerConfirmed(localPlayerId,hole),entered_by:userId
+      };
+      const { error }=await supabase.from('scores').upsert(row,{onConflict:'round_id,event_player_id,hole_number'});throwIf(error);
+    }
+    event._dirtyPlayerScores=[];
+    return;
+  }
+
   const scoreRows=[];
   Object.entries(event.scores || {}).forEach(([localPlayerId,holes])=>{
     if(role!=='admin'&&!selfMode)return;
@@ -389,6 +476,9 @@ async function syncScores(event,userId,{role='admin'}={}){
         penalty_strokes: Number(stat.penaltyStrokes || 0),
         putts: stat.putts == null ? null : Number(stat.putts),
         sand_shots: stat.sandShots == null ? null : Number(stat.sandShots),
+        fairway_result: stat.fairwayResult || null,
+        green_in_regulation: stat.gir == null ? null : !!stat.gir,
+        up_and_down: stat.upAndDown == null ? null : !!stat.upAndDown,
         is_confirmed: isPlayerConfirmed(localPlayerId,hole),
         entered_by: userId
       });
@@ -423,6 +513,9 @@ async function syncScores(event,userId,{role='admin'}={}){
         penalty_strokes: Number(stat.penaltyStrokes || 0),
         putts: stat.putts == null ? null : Number(stat.putts),
         sand_shots: stat.sandShots == null ? null : Number(stat.sandShots),
+        fairway_result: stat.fairwayResult || null,
+        green_in_regulation: stat.gir == null ? null : !!stat.gir,
+        up_and_down: stat.upAndDown == null ? null : !!stat.upAndDown,
         is_confirmed: (event.teamConfirmedHoles?.[localTeamId]||[]).length ? (event.teamConfirmedHoles[localTeamId]||[]).includes(Number(hole)) : confirmed.has(Number(hole)),
         entered_by: userId
       });
@@ -476,7 +569,7 @@ async function loadOneEvent(eventRow){
   throwIf(roundError);
   if(!round) return null;
 
-  const [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes,groupsRes] = await Promise.all([
+  const [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes,groupsRes,scorecardsRes] = await Promise.all([
     eventRow.course_id ? supabase.from('courses').select('*').eq('id',eventRow.course_id).maybeSingle() : Promise.resolve({data:null,error:null}),
     round.tee_id ? supabase.from('course_tees').select('*').eq('id',round.tee_id).maybeSingle() : Promise.resolve({data:null,error:null}),
     supabase.from('round_holes').select('*').eq('round_id',round.id).order('hole_number'),
@@ -486,9 +579,10 @@ async function loadOneEvent(eventRow){
     supabase.from('team_scores').select('*').eq('round_id',round.id),
     supabase.from('ambrose_drives').select('*').eq('round_id',round.id),
     supabase.from('round_segments').select('*').eq('round_id',round.id).order('sort_order'),
-    supabase.from('event_groups').select('*').eq('event_id',eventRow.id).order('sort_order')
+    supabase.from('event_groups').select('*').eq('event_id',eventRow.id).order('sort_order'),
+    supabase.from('event_scorecards').select('*').eq('round_id',round.id)
   ]);
-  [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes,groupsRes].forEach(r=>throwIf(r.error));
+  [courseRes,teeRes,holesRes,playersRes,teamsRes,scoresRes,teamScoresRes,drivesRes,segmentsRes,groupsRes,scorecardsRes].forEach(r=>throwIf(r.error));
 
   let membersRes={data:[],error:null};
   const loadedTeamIds=(teamsRes.data||[]).map(x=>x.id);
@@ -513,6 +607,10 @@ async function loadOneEvent(eventRow){
   }
   let memberRole=null;
   if(currentUser){const {data:member}=await supabase.from('event_members').select('role').eq('event_id',eventRow.id).eq('user_id',currentUser.id).maybeSingle();memberRole=member?.role||null;}
+  const announcementsRes=await supabase.from('event_announcements').select('id,message,kind,created_by,created_at').eq('event_id',eventRow.id).order('created_at',{ascending:false}).limit(12);
+  throwIf(announcementsRes.error);
+  let auditRes={data:[],error:null};
+  if(memberRole==='admin'){auditRes=await supabase.from('event_audit_log').select('id,actor_user_id,action,entity_type,entity_id,reason,before_data,after_data,created_at').eq('event_id',eventRow.id).order('created_at',{ascending:false}).limit(60);throwIf(auditRes.error)}
   const players=(playersRes.data||[]).map((p,i)=>({
     id:p.id,
     name:p.display_name,
@@ -522,7 +620,11 @@ async function loadOneEvent(eventRow){
     userId:p.user_id||null,
     claimed:!!p.user_id,
     isSelf:!!(currentUser&&p.user_id===currentUser.id),
-    avatarPath:p.user_id?(publicProfileByUser[p.user_id]?.avatar_path||''):''
+    avatarPath:p.user_id?(publicProfileByUser[p.user_id]?.avatar_path||''):'',
+    claimedAt:p.claimed_at||null,
+    competitionStatus:p.competition_status||'active',
+    statusNote:p.status_note||'',
+    statusUpdatedAt:p.status_updated_at||null
   }));
   const teams=(teamsRes.data||[]).map(t=>({id:t.id,name:t.name,teamHcp:Number(t.handicap_allowance||0)}));
   const scores={}; players.forEach(p=>scores[p.id]={});
@@ -530,7 +632,7 @@ async function loadOneEvent(eventRow){
   (scoresRes.data||[]).forEach(s=>{
     scores[s.event_player_id] ||= {}; scores[s.event_player_id][s.hole_number]=s.gross_strokes;
     playerStats[s.event_player_id] ||= {};
-    playerStats[s.event_player_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0)};
+    playerStats[s.event_player_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0),fairwayResult:s.fairway_result||null,gir:s.green_in_regulation==null?null:!!s.green_in_regulation,upAndDown:s.up_and_down==null?null:!!s.up_and_down};
   });
   const playerConfirmedHoles={}; players.forEach(p=>playerConfirmedHoles[p.id]=[]);
   (scoresRes.data||[]).filter(s=>s.is_confirmed).forEach(s=>{playerConfirmedHoles[s.event_player_id] ||= [];playerConfirmedHoles[s.event_player_id].push(Number(s.hole_number));});
@@ -540,7 +642,7 @@ async function loadOneEvent(eventRow){
   (teamScoresRes.data||[]).forEach(s=>{
     teamScores[s.team_id] ||= {}; teamScores[s.team_id][s.hole_number]=s.gross_strokes;
     teamStats[s.team_id] ||= {};
-    teamStats[s.team_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0)};
+    teamStats[s.team_id][s.hole_number]={putts:s.putts==null?null:Number(s.putts),sandShots:s.sand_shots==null?null:Number(s.sand_shots),penaltyStrokes:Number(s.penalty_strokes||0),fairwayResult:s.fairway_result||null,gir:s.green_in_regulation==null?null:!!s.green_in_regulation,upAndDown:s.up_and_down==null?null:!!s.up_and_down};
   });
   const teamConfirmedHoles={}; teams.forEach(t=>teamConfirmedHoles[t.id]=[]);
   (teamScoresRes.data||[]).filter(s=>s.is_confirmed).forEach(s=>{teamConfirmedHoles[s.team_id] ||= [];teamConfirmedHoles[s.team_id].push(Number(s.hole_number));});
@@ -552,6 +654,7 @@ async function loadOneEvent(eventRow){
   const cloud={
     eventId:eventRow.id,
     joinCode:eventRow.join_code||null,
+    spectatorCode:eventRow.spectator_code||null,
     role:memberRole||null,
     courseId:eventRow.course_id,
     teeId:round.tee_id,
@@ -566,9 +669,36 @@ async function loadOneEvent(eventRow){
 
   const customSegments=(segmentsRes.data||[]).map((seg,i)=>({id:seg.id,name:seg.name,format:localFormat(seg.format_key),holes:(seg.holes||[]).map(Number).sort((a,b)=>a-b),points:Number(seg.competition_points||1),settings:seg.settings||{}}));
   const groupMembers={};(groupMembersRes.data||[]).forEach(m=>{groupMembers[m.group_id] ||= [];groupMembers[m.group_id].push(m)});Object.values(groupMembers).forEach(arr=>arr.sort((a,b)=>(a.position||0)-(b.position||0)));
-  const groups=(groupsRes.data||[]).map(g=>({id:g.id,name:g.name,playerIds:(groupMembers[g.id]||[]).map(m=>m.event_player_id),startingHole:Number(g.starting_hole||1),teeTime:timeFromDb(g.tee_time)}));
+  const groups=(groupsRes.data||[]).map(g=>({id:g.id,name:g.name,playerIds:(groupMembers[g.id]||[]).map(m=>m.event_player_id),startingHole:Number(g.starting_hole||1),teeTime:timeFromDb(g.tee_time),status:g.status||'not_started',lastActivityAt:g.last_activity_at||null,updatedAt:g.updated_at||null}));
   const groupConfirmedHoles={},groupCurrentHoles={};
-  groups.forEach(g=>{groupCurrentHoles[g.id]=Number((groupsRes.data||[]).find(x=>x.id===g.id)?.current_hole||1);const pids=new Set(g.playerIds);groupConfirmedHoles[g.id]=(holesRes.data||[]).map(h=>h.hole_number).filter(h=>{const rows=(scoresRes.data||[]).filter(x=>x.hole_number===h&&pids.has(x.event_player_id));return rows.length===g.playerIds.length&&rows.every(x=>x.is_confirmed)})});
+  groups.forEach(g=>{
+    const activeIds=(g.playerIds||[]).filter(pid=>(players.find(p=>p.id===pid)?.competitionStatus||'active')==='active');
+    const pids=new Set(activeIds);
+    groupConfirmedHoles[g.id]=(holesRes.data||[]).map(h=>h.hole_number).filter(h=>{if(!activeIds.length)return false;const rows=(scoresRes.data||[]).filter(x=>x.hole_number===h&&pids.has(x.event_player_id));return rows.length===activeIds.length&&rows.every(x=>x.is_confirmed)});
+    const start=Number(g.startingHole||1),order=Array.from({length:18},(_,i)=>((start-1+i)%18)+1),done=new Set(groupConfirmedHoles[g.id]);
+    groupCurrentHoles[g.id]=order.find(h=>!done.has(h))||start;
+  });
+
+  const scorecards=(scorecardsRes.data||[]).map(c=>({
+    id:c.id,scope:c.scope,status:c.status,playerId:c.event_player_id||null,teamId:c.team_id||null,markerPlayerId:c.marker_player_id||null,submittedBy:c.submitted_by||null,submittedAt:c.submitted_at||null,verifiedBy:c.verified_by||null,verifiedAt:c.verified_at||null,updatedAt:c.updated_at||null
+  }));
+  const holeByNo=Object.fromEntries(holes.map(h=>[Number(h.number),h]));
+  const playerById=Object.fromEntries(players.map(p=>[p.id,p]));
+  const teamById=Object.fromEntries(teams.map(t=>[t.id,t]));
+  const recentActivity=[];
+  (scoresRes.data||[]).filter(x=>x.is_confirmed).forEach(x=>{
+    const p=playerById[x.event_player_id],h=holeByNo[Number(x.hole_number)];if(!p||!h)return;
+    const rel=Number(x.gross_strokes)-Number(h.par);
+    let result=rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;
+    recentActivity.push({at:x.updated_at||x.created_at||'',type:'player',playerId:p.id,name:p.name,hole:Number(x.hole_number),score:Number(x.gross_strokes),par:Number(h.par),result});
+  });
+  (teamScoresRes.data||[]).filter(x=>x.is_confirmed).forEach(x=>{
+    const t=teamById[x.team_id],h=holeByNo[Number(x.hole_number)];if(!t||!h)return;
+    const rel=Number(x.gross_strokes)-Number(h.par);
+    let result=rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;
+    recentActivity.push({at:x.updated_at||x.created_at||'',type:'team',teamId:t.id,name:t.name,hole:Number(x.hole_number),score:Number(x.gross_strokes),par:Number(h.par),result});
+  });
+  recentActivity.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 
   return {
     id:eventRow.id,
@@ -589,6 +719,8 @@ async function loadOneEvent(eventRow){
     teamStats,
     teamConfirmedHoles,
     trackStats:!!round.format_settings?.track_stats,
+    advancedStats:!!round.format_settings?.advanced_stats,
+    sideGames:round.format_settings?.side_games || {ntpHole:0,ntpPlayerId:null,ldHole:0,ldPlayerId:null},
     driveSelections,
     minDrives:Number(round.format_settings?.min_drives || 0),
     ambroseMode:round.format_settings?.ambrose_mode || 'single',
@@ -600,7 +732,16 @@ async function loadOneEvent(eventRow){
     groupCurrentHoles,
     currentHole:round.current_hole || 1,
     confirmedHoles,
+    scorecards,
+    recentActivity:recentActivity.slice(0,12),
+    announcements:(announcementsRes.data||[]).map(a=>({id:a.id,message:a.message,kind:a.kind,createdBy:a.created_by||null,createdAt:a.created_at})),
+    auditLog:(auditRes.data||[]).map(a=>({id:a.id,actorUserId:a.actor_user_id||null,action:a.action,entityType:a.entity_type||null,entityId:a.entity_id||null,reason:a.reason||null,before:a.before_data||null,after:a.after_data||null,createdAt:a.created_at})),
+    registrationOpen:eventRow.registration_open!==false,
+    scoringLocked:!!eventRow.scoring_locked,
+    resultsPublished:!!eventRow.results_published,
+    spectatorEnabled:eventRow.spectator_enabled!==false,
     createdAt:eventRow.created_at,
+    updatedAt:eventRow.updated_at,
     cloud
   };
 }
@@ -619,15 +760,23 @@ export async function loadCloudEvents(){
   return events;
 }
 
-export function subscribeToRound(roundId,onChange){
+export function subscribeToRound(roundId,onChange,eventId=null,onStatus=null){
   if(!roundId) return null;
-  const channel=supabase.channel(`fairway-one-round-${roundId}`)
+  let channel=supabase.channel(`fairway-one-round-${roundId}`)
     .on('postgres_changes',{event:'*',schema:'public',table:'scores',filter:`round_id=eq.${roundId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'team_scores',filter:`round_id=eq.${roundId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'ambrose_drives',filter:`round_id=eq.${roundId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'round_segments',filter:`round_id=eq.${roundId}`},onChange)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rounds',filter:`id=eq.${roundId}`},onChange)
-    .subscribe();
+    .on('postgres_changes',{event:'*',schema:'public',table:'event_scorecards',filter:`round_id=eq.${roundId}`},onChange)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rounds',filter:`id=eq.${roundId}`},onChange);
+  if(eventId){
+    channel=channel
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'events',filter:`id=eq.${eventId}`},onChange)
+      .on('postgres_changes',{event:'*',schema:'public',table:'event_players',filter:`event_id=eq.${eventId}`},onChange)
+      .on('postgres_changes',{event:'*',schema:'public',table:'event_groups',filter:`event_id=eq.${eventId}`},onChange)
+      .on('postgres_changes',{event:'*',schema:'public',table:'event_announcements',filter:`event_id=eq.${eventId}`},onChange);
+  }
+  channel.subscribe(status=>onStatus?.(status));
   return channel;
 }
 
