@@ -941,6 +941,7 @@ html,body{
 
 /* V8 tournament, stats and shared course library */
 .labeled-hole-grid label{display:grid;gap:5px;min-width:0}
+.labeled-hole-grid label:last-child{grid-column:1/-1}
 .labeled-hole-grid label>span{display:block;text-align:center;font-size:8px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .course-library-note{margin:10px 0 0;padding:10px 12px;border:1px solid #dbe6dd;border-radius:13px;background:#eef5ef;color:var(--forest-700);font-size:10px;line-height:1.45;font-weight:700}
 .course-share-toggle,.stats-toggle{margin-top:12px}
