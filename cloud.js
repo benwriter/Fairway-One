@@ -115,7 +115,7 @@ export async function loadPublicTournament(code){
   const playerById=Object.fromEntries(players.map(p=>[p.id,p]));
   groups.forEach(g=>{const activeIds=(g.playerIds||[]).filter(pid=>(playerById[pid]?.competitionStatus||'active')==='active');const common=[];for(let h=1;h<=18;h++){if(activeIds.length&&activeIds.every(pid=>(playerConfirmedHoles[pid]||[]).includes(h)))common.push(h)}groupConfirmedHoles[g.id]=common;const start=Number(g.startingHole||1),order=Array.from({length:18},(_,i)=>((start-1+i)%18)+1),done=new Set(common);groupCurrentHoles[g.id]=order.find(h=>!done.has(h))||start});
   const holeByNo=Object.fromEntries((x.course?.holes||[]).map(h=>[Number(h.number),h]));
-  const recentActivity=(x.scores||[]).filter(r=>r.confirmed).map(r=>{const h=holeByNo[Number(r.hole)],p=playerById[r.playerId];if(!h||!p)return null;const rel=Number(r.gross)-Number(h.par);const result=rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;return{at:r.updatedAt||'',type:'player',playerId:r.playerId,name:p.name,hole:Number(r.hole),score:Number(r.gross),par:Number(h.par),result}}).filter(Boolean).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,12);
+  const recentActivity=(x.scores||[]).filter(r=>r.confirmed).map(r=>{const h=holeByNo[Number(r.hole)],p=playerById[r.playerId];if(!h||!p)return null;const rel=Number(r.gross)-Number(h.par);const result=Number(r.gross)===0?'Pick up · 0 pts':rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;return{at:r.updatedAt||'',type:'player',playerId:r.playerId,name:p.name,hole:Number(r.hole),score:Number(r.gross),par:Number(h.par),result}}).filter(Boolean).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,12);
   return {
     id:x.id,name:x.name,date:x.date,teeTime:x.teeTime||'07:00',status:x.status==='completed'?'complete':x.status==='draft'?'draft':'live',eventMode:'tournament',format:localFormat(x.format),
     course:{name:x.course?.name||'Course',tee:x.course?.tee||'',holes:x.course?.holes||[]},players,teams:[],scores,teamScores:{},playerStats:{},teamStats:{},playerConfirmedHoles,teamConfirmedHoles:{},
@@ -689,7 +689,7 @@ async function loadOneEvent(eventRow){
   (scoresRes.data||[]).filter(x=>x.is_confirmed).forEach(x=>{
     const p=playerById[x.event_player_id],h=holeByNo[Number(x.hole_number)];if(!p||!h)return;
     const rel=Number(x.gross_strokes)-Number(h.par);
-    let result=rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;
+    let result=Number(x.gross_strokes)===0?'Pick up · 0 pts':rel<=-2?'Eagle or better':rel===-1?'Birdie':rel===0?'Par':rel===1?'Bogey':`${rel>0?'+':''}${rel}`;
     recentActivity.push({at:x.updated_at||x.created_at||'',type:'player',playerId:p.id,name:p.name,hole:Number(x.hole_number),score:Number(x.gross_strokes),par:Number(h.par),result});
   });
   (teamScoresRes.data||[]).filter(x=>x.is_confirmed).forEach(x=>{

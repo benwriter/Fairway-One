@@ -1,4 +1,4 @@
-const CACHE = 'fairway-one-v12-121';
+const CACHE = 'fairway-one-v12-122-pickup';
 const ASSETS = ['/', '/index.html', '/styles.css', '/app.js', '/format-engine.js', '/cloud.js', '/manifest.json', '/fairway-one-mark.svg', '/hero-course.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))));

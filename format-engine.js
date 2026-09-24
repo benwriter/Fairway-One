@@ -103,6 +103,10 @@ export const FORMAT_LIBRARY = {
   }
 };
 
+// Zero is the persisted pickup marker, never a holed-out gross score.
+export function isPickup(score) { return score === 0; }
+export function supportsPickup(format) { return ['stableford','fourball_stableford','modified_stableford'].includes(format); }
+
 export function formatInfo(key) { return FORMAT_LIBRARY[key] || FORMAT_LIBRARY.stroke; }
 
 export function handicapStrokes(hcp, si) {
@@ -123,11 +127,12 @@ export function teamScoreFor(event, teamId, holeNo) {
 export function holeNet(event, player, holeNo) {
   const hole = event.course.holes[holeNo - 1];
   const gross = scoreFor(event, player.id, holeNo);
-  if (gross == null || !hole) return null;
+  if (gross == null || isPickup(gross) || !hole) return null;
   return gross - handicapStrokes(player.hcp, hole.si);
 }
 
 export function holeStableford(event, player, holeNo) {
+  if (isPickup(scoreFor(event, player.id, holeNo))) return 0;
   const net = holeNet(event, player, holeNo);
   if (net == null) return null;
   const par = event.course.holes[holeNo - 1].par;
@@ -142,6 +147,7 @@ export function holeParBogey(event, player, holeNo) {
 }
 
 export function holeModifiedStableford(event, player, holeNo) {
+  if (isPickup(scoreFor(event, player.id, holeNo))) return 0;
   const net = holeNet(event, player, holeNo);
   if (net == null) return null;
   const par = event.course.holes[holeNo - 1].par;
@@ -171,7 +177,8 @@ export function commonScoredHoles(event) {
 }
 
 export function strokeStats(event, player) {
-  const holes = scoredHolesForPlayer(event, player.id);
+  const allHoles = scoredHolesForPlayer(event, player.id);
+  const holes = allHoles.filter(h => !isPickup(scoreFor(event, player.id, h)));
   let gross = 0, net = 0, par = 0;
   holes.forEach(h => {
     const hole = event.course.holes[h - 1];
@@ -180,7 +187,7 @@ export function strokeStats(event, player) {
     net += score - handicapStrokes(player.hcp, hole.si);
     par += hole.par;
   });
-  return { holes: holes.length, gross, net, toPar: net - par };
+  return { holes: allHoles.length, pickups: allHoles.length-holes.length, gross, net, toPar: net - par };
 }
 
 export function stablefordStats(event, player) {

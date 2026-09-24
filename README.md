@@ -1,3 +1,20 @@
+## V12 update: Stableford pickups
+
+- Tap **Pick Up / Wipe** for 0 points. The card displays **P/U**, distinct from an unentered hole.
+- Available in Stableford, Four-Ball Stableford and Modified Stableford, including custom-round segments and tournaments. Modified Stableford pickups use the requested zero-point convention; holed-out scores retain the existing modified points table.
+- Confirm the hole normally. Tap the score to replace a pickup with par, use +/- to adjust, or × to clear it.
+- Pickups do not count as zero-stroke eagles or qualify for gross records. Gross totals are unavailable when a round contains a pickup.
+
+### Installation for cloud scoring
+
+Before uploading the updated frontend, run `supabase/enable-stableford-pickups.sql` in the **dedicated Fairway One** project's SQL editor. This extends gross-score checks to accept the zero pickup marker while retaining their existing bounds and all RLS policies. The frontend continues using the existing score sync and spectator payloads. Do not run this against Writer Cup.
+
+The SQL is provided for deployment; it has not been run against your live database. The separately deployed tournament-admin Edge Function is not included in the original V12 ZIP. Its official override endpoint may still require positive gross scores: to change a finalized card to a pickup, reopen the card and use normal Pick Up entry, then finalize again.
+
+Validation: JavaScript syntax and automated scoring/UI-handler checks passed for zero points, handicaps, team best-ball, missing versus picked-up holes, editing/clearing, locked cards and local JSON persistence. Live cloud and browser end-to-end checks have not been performed.
+
+---
+
 # Fairway One V12 — Tournament Ready
 
 V12 keeps the V11 Elite Round experience intact and hardens the V10 tournament architecture for real event operations.

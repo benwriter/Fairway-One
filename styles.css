@@ -1129,3 +1129,7 @@ html,body{
 .status-pill.setup{background:#fff6df;color:#87641d}.status-pill.setup i{background:#d6a53d}
 @media(max-width:390px){.preflight-list{grid-template-columns:1fr}.ops-preflight>summary{align-items:flex-start;flex-direction:column}.ops-preflight>summary>strong{align-self:flex-start}}
 .ops-row-actions{display:flex;gap:4px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.tiny-btn.finalize{border-color:rgba(222,176,72,.32)!important;color:#efdca9!important;background:rgba(222,176,72,.08)!important}.live-pill.upcoming{background:#fff2d4;color:#7d5a15}.live-pill.upcoming i{background:#d6a53d}
+
+/* Pickup spans the existing controls without widening mobile cards. */
+.score-control .pickup-score{grid-column:1/-1;font-size:13px;min-height:44px;height:auto;padding:10px;border:1px solid var(--line);background:#f6f8f5;}
+.score-control .pickup-score.selected{background:#eadfca;color:#563e21;border-color:#a98850;}
