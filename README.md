@@ -85,3 +85,9 @@ The final V12 pass adds several protections that matter in a real field:
 - Final result publication now requires every **active** player scorecard to be final, not merely complete.
 - Organisers have an audited **Finalize card** fallback for a completed scorecard that has been checked outside the standard player/marker workflow, such as a verified paper card.
 - Spectator pages distinguish pre-event **Upcoming** state from Live and Final Results.
+
+## V12.3 distance and cloud-policy fix
+
+- Event and tournament setup now accepts an optional distance in metres for every hole. It is already carried through to the live scorecard and cloud `distance_m` fields.
+- The screenshot error `new row violates row-level security policy for table "events"` is caused by the initial event upsert happening before the owner is inserted into `event_members`. Apply `supabase/migrations/20260924_fix_owner_event_rls.sql` once in the dedicated Fairway One Supabase project. The queued local events should then sync on the next retry.
+- Adding 18 distance values is negligible for Luna usage. It is a small UI/data change, not an AI generation or large model task. Luna usage is driven by the coding session itself, not by the metres stored in the app.
