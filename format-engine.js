@@ -2,7 +2,7 @@ export const FORMAT_LIBRARY = {
   custom: {
     name: 'Build Your Round', short: 'Custom', category: 'Custom', entry: 'dynamic', team: true,
     description: 'Assign different Fairway One formats to whichever holes you choose.',
-    how: 'Create segments, choose a format for each segment, and assign any of the 18 holes. Fairway One switches scoring logic automatically as the round moves between segments.',
+    how: 'Create segments, choose a format for each segment, and assign the holes in your round. Fairway One switches scoring logic automatically as the round moves between segments.',
     minPlayers: 1, maxPlayers: 8, custom: true
   },
   stroke: {
@@ -109,10 +109,11 @@ export function supportsPickup(format) { return ['stableford','fourball_stablefo
 
 export function formatInfo(key) { return FORMAT_LIBRARY[key] || FORMAT_LIBRARY.stroke; }
 
-export function handicapStrokes(hcp, si) {
-  const safe = Math.max(0, Number(hcp) || 0);
-  const base = Math.floor(safe / 18);
-  const remainder = safe % 18;
+export function handicapStrokes(hcp, si, holeCount=18) {
+  const count = holeCount === 9 ? 9 : 18;
+  const safe = count === 9 ? Math.max(0, Math.round((Number(hcp) || 0) / 2)) : Math.max(0, Number(hcp) || 0);
+  const base = Math.floor(safe / count);
+  const remainder = safe % count;
   return base + (si <= remainder ? 1 : 0);
 }
 
@@ -128,7 +129,7 @@ export function holeNet(event, player, holeNo) {
   const hole = event.course.holes[holeNo - 1];
   const gross = scoreFor(event, player.id, holeNo);
   if (gross == null || isPickup(gross) || !hole) return null;
-  return gross - handicapStrokes(player.hcp, hole.si);
+  return gross - handicapStrokes(player.hcp, hole.si, event.course.holes.length);
 }
 
 export function holeStableford(event, player, holeNo) {
@@ -184,7 +185,7 @@ export function strokeStats(event, player) {
     const hole = event.course.holes[h - 1];
     const score = scoreFor(event, player.id, h);
     gross += score;
-    net += score - handicapStrokes(player.hcp, hole.si);
+    net += score - handicapStrokes(player.hcp, hole.si, event.course.holes.length);
     par += hole.par;
   });
   return { holes: allHoles.length, pickups: allHoles.length-holes.length, gross, net, toPar: net - par };
@@ -218,7 +219,7 @@ export function matchStatus(event,p1,p2) {
     if(a==null||b==null)return;
     holes++; if(a<b)p1Wins++; else if(b<a)p2Wins++;
   });
-  const diff=p1Wins-p2Wins, remaining=18-holes;
+  const diff=p1Wins-p2Wins, remaining=event.course.holes.length-holes;
   let label='ALL SQUARE';
   if(diff>0) label=`${p1.name.split(' ')[0]} ${diff} UP`;
   if(diff<0) label=`${p2.name.split(' ')[0]} ${Math.abs(diff)} UP`;
@@ -295,7 +296,7 @@ export function fourballMatchStatus(event){
   const [a,b]=event.teams||[]; if(!a||!b)return {holes:0,diff:0,label:'Need two teams'};
   let aw=0,bw=0,holes=0;
   event.course.holes.forEach(h=>{ const av=teamHoleValue(event,a,h.number),bv=teamHoleValue(event,b,h.number); if(av==null||bv==null)return; holes++; if(av<bv)aw++; else if(bv<av)bw++; });
-  const diff=aw-bw,rem=18-holes; let label='ALL SQUARE';
+  const diff=aw-bw,rem=event.course.holes.length-holes; let label='ALL SQUARE';
   if(diff>0)label=`${a.name} ${diff} UP`; if(diff<0)label=`${b.name} ${Math.abs(diff)} UP`;
   if(holes>0&&Math.abs(diff)>rem)label=`${diff>0?a.name:b.name} WINS ${Math.abs(diff)}&${rem}`;
   return {holes,diff,label};

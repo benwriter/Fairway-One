@@ -1,3 +1,13 @@
+## V12 update: nine-hole rounds
+
+In **Create Round → Course → Holes**, choose **9 holes** or **18 holes**. A nine-hole course has holes 1–9, with stroke indexes 1–9. Hole setup includes par, stroke index and distance in metres. This works with individual, team and custom round formats; custom segments and the scorecard follow the selected number of holes. The round completes after hole 9, and course records distinguish nine-hole rounds from eighteen-hole rounds. The entered 18-hole handicap is halved and rounded to the nearest whole stroke for a nine-hole round, then allocated by stroke index. Tournament setup remains eighteen holes.
+
+Once scoring starts, the hole count is locked to protect existing scores. Cloud rounds save `hole_count` and only the selected `round_holes`; switching an unscored synced round to nine holes removes old holes 10–18 on the next sync. The cloud scorecard service was not tested against a live database in this package.
+
+Validation: JavaScript syntax and isolated checks for switching nine/eighteen holes, custom segments, stroke indexes, hole progression, Stableford scoring and pickups passed.
+
+---
+
 ## V12 update: Stableford pickups
 
 - Tap **Pick Up / Wipe** for 0 points. The card displays **P/U**, distinct from an unentered hole.

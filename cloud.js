@@ -384,6 +384,7 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       distance_m: h.distance || null
     }));
     if(roundHoles.length){ res = await supabase.from('round_holes').upsert(roundHoles,{onConflict:'round_id,hole_number'}); throwIf(res.error); }
+    res = await supabase.from('round_holes').delete().eq('round_id',cloud.roundId).gt('hole_number',roundHoles.length); throwIf(res.error);
 
 
     const segmentRows = event.format === 'custom' ? (event.customSegments || []).map((seg,i)=>({
