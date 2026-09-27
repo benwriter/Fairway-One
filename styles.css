@@ -720,7 +720,7 @@ button,a,input,select,textarea,[role="button"],.quick-card,.learn-card,.guide-bu
 .toolbar-v5{display:grid;grid-template-columns:1fr 1fr}
 
 @media(max-width:940px){
-  .home-masthead{position:sticky;top:0;z-index:12;gap:10px;margin:0 -20px;padding:max(21px,env(safe-area-inset-top)) 18px 8px;background:var(--paper)}
+  .home-screen .home-masthead{position:sticky;top:0;z-index:12;max-width:none;gap:10px;margin:0 -20px;padding:max(21px,env(safe-area-inset-top)) 20px 8px;background:var(--paper)}
   .home-brand-mark{width:54px;height:45px}
   .home-brand-copy strong{font-size:30px}
   .home-brand-copy span{font-size:8px}
@@ -742,7 +742,7 @@ button,a,input,select,textarea,[role="button"],.quick-card,.learn-card,.guide-bu
 }
 
 @media(max-width:390px){
-  .home-masthead{margin:0 -16px;padding-right:18px;padding-left:18px}
+  .home-screen .home-masthead{margin:0 -16px;padding-right:16px;padding-left:16px}
   .home-brand-mark{width:48px;height:40px}
   .home-brand-copy strong{font-size:28px}
   .home-brand-copy span{font-size:8px;letter-spacing:.12em}
