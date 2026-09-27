@@ -111,10 +111,16 @@ export function formatInfo(key) { return FORMAT_LIBRARY[key] || FORMAT_LIBRARY.s
 
 export function handicapStrokes(hcp, si, holeCount=18) {
   const count = holeCount === 9 ? 9 : 18;
-  const safe = count === 9 ? Math.max(0, Math.round((Number(hcp) || 0) / 2)) : Math.max(0, Number(hcp) || 0);
-  const base = Math.floor(safe / count);
-  const remainder = safe % count;
-  return base + (si <= remainder ? 1 : 0);
+  const playing = Math.round(Number(hcp) || 0);
+  const index = Number(si);
+  if (!Number.isInteger(index) || index < 1 || index > count) return 0;
+  const absolute = Math.abs(playing);
+  const base = Math.floor(absolute / count);
+  const remainder = absolute % count;
+  // Plus handicappers give strokes back on the easiest indexed holes first.
+  return playing < 0
+    ? (base + (index > count - remainder ? 1 : 0)) * -1 || 0
+    : base + (index <= remainder ? 1 : 0);
 }
 
 export function scoreFor(event, playerId, holeNo) {
@@ -138,6 +144,14 @@ export function holeStableford(event, player, holeNo) {
   if (net == null) return null;
   const par = event.course.holes[holeNo - 1].par;
   return Math.max(0, 2 + (par - net));
+}
+
+// A pickup remains a separate marker (0) in saved scores. This is the
+// handicap-adjusted maximum displayed beside it, never a holed-out gross.
+export function pickupAdjustedScore(event, player, holeNo) {
+  const hole = event.course?.holes?.[holeNo - 1];
+  if (!hole || !player) return null;
+  return Number(hole.par) + 2 + handicapStrokes(player.hcp, hole.si, event.course.holes.length);
 }
 
 export function holeParBogey(event, player, holeNo) {

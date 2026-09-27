@@ -311,7 +311,7 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       event_id: cloud.eventId,
       display_name: p.name,
       user_id: p.userId || existingUserByPlayer[cloud.playerIds[p.id]] || ((p.isSelf || String(p.name||'').trim().toLowerCase()===String(profile?.name||'').trim().toLowerCase()) ? user.id : null),
-      handicap_index: Number(p.hcp || 0),
+      handicap_index: Number(event.course?.holes?.length===9&&event.nineHoleHandicapMode==='full18' ? p.hcp18 ?? p.hcp : p.hcp || 0),
       playing_handicap: Math.round(Number(p.hcp || 0)),
       sort_order: i
     }));
@@ -369,7 +369,7 @@ export async function syncEvent(event, profile, { structure=true } = {}){
       round_number: 1,
       format_key: dbFormat(event.format),
       tee_id: cloud.teeId,
-      format_settings: { min_drives: Number(event.minDrives || 0), ambrose_mode: event.ambroseMode || null, group_size: Number(event.groupSize || 0), start_type: event.startType || null, track_stats: !!event.trackStats, advanced_stats: !!event.advancedStats, side_games: event.sideGames ? { ...event.sideGames, ntpPlayerId: event.sideGames.ntpPlayerId ? (cloud.playerIds[event.sideGames.ntpPlayerId] || event.sideGames.ntpPlayerId) : null, ldPlayerId: event.sideGames.ldPlayerId ? (cloud.playerIds[event.sideGames.ldPlayerId] || event.sideGames.ldPlayerId) : null } : null },
+      format_settings: { min_drives: Number(event.minDrives || 0), ambrose_mode: event.ambroseMode || null, group_size: Number(event.groupSize || 0), start_type: event.startType || null, track_stats: !!event.trackStats, advanced_stats: !!event.advancedStats, nine_hole_handicap_mode: event.nineHoleHandicapMode || null, side_games: event.sideGames ? { ...event.sideGames, ntpPlayerId: event.sideGames.ntpPlayerId ? (cloud.playerIds[event.sideGames.ntpPlayerId] || event.sideGames.ntpPlayerId) : null, ldPlayerId: event.sideGames.ldPlayerId ? (cloud.playerIds[event.sideGames.ldPlayerId] || event.sideGames.ldPlayerId) : null } : null },
       status: event.status === 'complete' ? 'completed' : 'live',
       current_hole: Math.max(1,Math.min(36,Number(event.currentHole || 1))),
       started_at: event.createdAt || new Date().toISOString(),
@@ -616,6 +616,7 @@ async function loadOneEvent(eventRow){
     id:p.id,
     name:p.display_name,
     hcp:Number(p.playing_handicap ?? p.handicap_index ?? 0),
+    hcp18:round.format_settings?.nine_hole_handicap_mode==='full18'?Number(p.handicap_index ?? p.playing_handicap ?? 0):undefined,
     tone:(i%6)+1,
     teamId:teamByPlayer[p.id] || null,
     userId:p.user_id||null,
@@ -721,6 +722,7 @@ async function loadOneEvent(eventRow){
     teamConfirmedHoles,
     trackStats:!!round.format_settings?.track_stats,
     advancedStats:!!round.format_settings?.advanced_stats,
+    nineHoleHandicapMode:round.format_settings?.nine_hole_handicap_mode || undefined,
     sideGames:round.format_settings?.side_games || {ntpHole:0,ntpPlayerId:null,ldHole:0,ldPlayerId:null},
     driveSelections,
     minDrives:Number(round.format_settings?.min_drives || 0),

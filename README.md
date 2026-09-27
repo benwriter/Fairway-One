@@ -1,6 +1,27 @@
+## 27 September update: pickup cap and nine-hole handicap entry
+
+- A 9-hole round completes when all nine holes have been confirmed. Hole 9 alone does not finish the round if an earlier hole is still unconfirmed; the scorecard shows what remains.
+- A Stableford pickup is stored as a distinct pickup marker (zero Stableford points). The scorecard shows the net double bogey cap followed by `*`: hole par + 2 + that player's strokes received on the hole. The adjusted gross total is starred too, and is not a holed-out stroke score. For example, par 4 with two strokes displays `8*` and 0 points.
+- New nine-hole rounds offer two setup choices. Enter the normal **18-hole playing/daily handicap** to estimate a nine-hole allowance by halving and rounding, or enter the course's **official 9-hole playing/daily handicap** directly. The course's official value can differ because its rating and slope matter. The scorecard applies that nine-hole allowance to indexes 1–9.
+- Existing nine-hole rounds without this setting keep the previously stored nine-hole playing handicap; their points are not silently recalculated. The selected mode and original 18-hole figure are carried through cloud round settings and player fields for new synced rounds.
+- Cloud join links still require successful event sync. This package does not prove the observed pending cloud event is fixed.
+
+---
+
+## Nine-hole field test fixes (27 September 2026)
+
+- Nine-hole playing handicaps are entered for the chosen nine; no extra halving. Plus handicaps such as +2 use -2 in the player handicap box.
+- Larger putts, sand, penalties, fairway, GIR and up/down controls on phones.
+- Live Impact Total Strokes displays the signed-in golfer’s gross total. If they pick up, it shows no complete gross total and explains why.
+- The scorecard displays remaining unconfirmed holes, a finish label when the last hole is ready, and takes the scorer to the next unfinished hole. Saving locally is explicitly labelled.
+- The sync banner shows the last error and offers Retry sync. Players join through Events → My Event → Player invite, after the organiser’s event is synced.
+- Live cloud sync and joining still require testing with two distinct signed-in devices. A persistent Sync pending warning means the event is not yet available for others to join.
+
+---
+
 ## V12 update: nine-hole rounds
 
-In **Create Round → Course → Holes**, choose **9 holes** or **18 holes**. A nine-hole course has holes 1–9, with stroke indexes 1–9. Hole setup includes par, stroke index and distance in metres. This works with individual, team and custom round formats; custom segments and the scorecard follow the selected number of holes. The round completes after hole 9, and course records distinguish nine-hole rounds from eighteen-hole rounds. The entered 18-hole handicap is halved and rounded to the nearest whole stroke for a nine-hole round, then allocated by stroke index. Tournament setup remains eighteen holes.
+In **Create Round → Course → Holes**, choose **9 holes** or **18 holes**. A nine-hole course has holes 1–9, with stroke indexes 1–9. Hole setup includes par, stroke index and distance in metres. This works with individual, team and custom round formats; custom segments and the scorecard follow the selected number of holes. The round completes after hole 9, and course records distinguish nine-hole rounds from eighteen-hole rounds. Enter the playing handicap for the selected nine holes. It is allocated directly across stroke indexes 1–9 and is never halved again. For a player whose nine-hole playing handicap is 12, indexes 1–3 receive two strokes and indexes 4–9 receive one. A plus-two playing handicap is entered as -2 and gives back one stroke on indexes 9 and 8. Tournament setup remains eighteen holes.
 
 Once scoring starts, the hole count is locked to protect existing scores. Cloud rounds save `hole_count` and only the selected `round_holes`; switching an unscored synced round to nine holes removes old holes 10–18 on the next sync. The cloud scorecard service was not tested against a live database in this package.
 
