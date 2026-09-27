@@ -1,3 +1,8 @@
+## 27 September compact mobile stats
+
+- Putts, sand shots and penalties stay on one row with smaller controls sized for an iPhone scorecard. Fairway and GIR remain beneath them.
+- The Up & Down scoring control was removed. Existing recorded values remain in saved round data.
+
 ## 27 September cloud and mobile scoring fix
 
 - Applied owner insert/select/update policies to the dedicated Fairway One database. Existing queued events can now retry sync.

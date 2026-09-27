@@ -1105,19 +1105,26 @@ html,body{
 .advanced-stat-choice{min-height:44px;padding:9px 5px;font-size:11px}
 .advanced-stat-item>span{font-size:10px}
 @media(max-width:390px){.hole-stat-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:8px}.hole-stat-item>div{grid-template-columns:minmax(38px,1fr) auto minmax(38px,1fr);gap:2px}.hole-stat-item button{min-width:38px;min-height:44px}.advanced-stat-grid{grid-template-columns:1fr;gap:10px}.advanced-stat-choice{font-size:13px}.advanced-stat-item>div{gap:7px}}
-/* Keep full-size scoring controls within the scorecard on iPhones. */
+/* Three compact columns fit within the scorecard on iPhones. */
 @media(max-width:940px){
-  .hole-stat-controls{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;padding:11px;min-width:0}
+  .hole-stat-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:9px;min-width:0}
   .hole-stat-item{min-width:0}
-  .hole-stat-item>div{grid-template-columns:minmax(0,1fr) minmax(16px,auto) minmax(0,1fr);gap:5px}
-  .hole-stat-item button{min-width:0;width:100%;min-height:44px}
-  .hole-stat-item:nth-child(3){grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:11px}
-  .hole-stat-item:nth-child(3)>span{margin:0;text-align:left}
-  .advanced-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
-  .advanced-stat-item:nth-child(3){grid-column:1/-1}
+  .hole-stat-item>span{font-size:9px;white-space:nowrap;letter-spacing:0}
+  .hole-stat-item>div{grid-template-columns:minmax(0,1fr) minmax(14px,auto) minmax(0,1fr);gap:3px}
+  .hole-stat-item button{min-width:0;width:100%;min-height:38px;font-size:19px}
+  .hole-stat-item b{font-size:16px}
+  .advanced-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
   .advanced-stat-item>div{min-width:0}
+  .advanced-stat-choice{min-height:38px;min-width:0;font-size:11px;padding:7px 3px}
   .hole-stat-note{min-width:0}
   .score-value.empty strong{font-size:23px;color:var(--forest-900)}
+}
+@media(max-width:360px){
+  .hole-stat-controls{gap:4px;padding:7px}
+  .hole-stat-item>span{font-size:8px}
+  .hole-stat-item>div{gap:2px}
+  .hole-stat-item button{min-height:36px;font-size:17px}
+  .hole-stat-item b{font-size:14px}
 }
 .organiser-console{margin:0 0 16px;padding:16px;border-radius:23px;background:linear-gradient(150deg,#09271d,#123b2c);color:#fff;box-shadow:0 16px 36px rgba(5,30,20,.13);overflow:hidden}.console-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.console-title .eyebrow{color:rgba(255,255,255,.52)}.console-title h2{margin:4px 0 0;font-family:Georgia,"Times New Roman",serif;font-size:24px;font-weight:400;line-height:1}.ops-health{flex:0 0 auto;border:1px solid rgba(255,255,255,.17);border-radius:999px;padding:7px 9px;font-size:6.5px;font-weight:950;letter-spacing:.08em;background:rgba(255,255,255,.08);color:#dcecdf}.ops-health.ready:before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:#5ed18a}.ops-health.locked{color:#ffe3ab;border-color:rgba(234,216,173,.32)}
 .readiness-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}.readiness-grid article{min-width:0;padding:10px 7px;border-radius:14px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.08);text-align:center}.readiness-grid span{display:block;font-size:6.5px;font-weight:850;text-transform:uppercase;color:rgba(255,255,255,.48)}.readiness-grid strong{display:block;margin:3px 0 2px;font-family:Georgia,"Times New Roman",serif;font-size:19px;font-weight:400;color:#fff}.readiness-grid small{display:block;font-size:5.8px;line-height:1.25;color:rgba(255,255,255,.42)}

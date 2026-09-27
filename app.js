@@ -697,7 +697,6 @@ function renderStatControls(event,type,id,holeNo){
   const advanced=event.advancedStats?`<div class="advanced-stat-grid">
     ${Number(hole?.par||4)>3?`<div class="advanced-stat-item"><span>Fairway</span><div>${statChoice('L','left',stat.fairwayResult,attr,id,'fairwayResult',disabled)}${statChoice('Hit','hit',stat.fairwayResult,attr,id,'fairwayResult',disabled)}${statChoice('R','right',stat.fairwayResult,attr,id,'fairwayResult',disabled)}</div></div>`:`<div class="advanced-stat-item muted"><span>Fairway</span><b>Par 3</b></div>`}
     <div class="advanced-stat-item"><span>GIR</span><div>${statChoice('Yes','true',String(stat.gir),attr,id,'gir',disabled)}${statChoice('No','false',String(stat.gir),attr,id,'gir',disabled)}</div></div>
-    <div class="advanced-stat-item"><span>Up & down</span><div>${statChoice('Yes','true',String(stat.upAndDown),attr,id,'upAndDown',disabled)}${statChoice('No','false',String(stat.upAndDown),attr,id,'upAndDown',disabled)}</div></div>
   </div>`:'';
   return `<div class="hole-stat-controls ${locked?'locked':''}">
     <div class="hole-stat-item"><span>Putts</span><div><button ${attr}="${id}" data-stat-field="putts" data-stat-dir="-1"${disabled}>−</button><b>${statValue(stat.putts)}</b><button ${attr}="${id}" data-stat-field="putts" data-stat-dir="1"${disabled}>+</button></div></div>
