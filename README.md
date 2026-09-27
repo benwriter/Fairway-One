@@ -1,3 +1,10 @@
+## 27 September cloud and mobile scoring fix
+
+- Applied owner insert/select/update policies to the dedicated Fairway One database. Existing queued events can now retry sync.
+- Applied score and team-score constraints accepting zero as the pickup marker. Existing 1–30 strokes remain valid.
+- Mobile stats controls use two columns so full-size buttons stay inside the scorecard.
+- Unentered scores display the hole par as a starting value; tap the number to save par or use +/− to adjust. Displaying par alone does not record a score.
+
 ## 27 September update: pickup cap and nine-hole handicap entry
 
 - A 9-hole round completes when all nine holes have been confirmed. Hole 9 alone does not finish the round if an earlier hole is still unconfirmed; the scorecard shows what remains.
@@ -38,9 +45,9 @@ Validation: JavaScript syntax and isolated checks for switching nine/eighteen ho
 
 ### Installation for cloud scoring
 
-Before uploading the updated frontend, run `supabase/enable-stableford-pickups.sql` in the **dedicated Fairway One** project's SQL editor. This extends gross-score checks to accept the zero pickup marker while retaining their existing bounds and all RLS policies. The frontend continues using the existing score sync and spectator payloads. Do not run this against Writer Cup.
+The pickup constraint is now applied to the dedicated Fairway One project. The frontend continues using the existing score sync and spectator payloads. Do not run Fairway One migrations against Writer Cup.
 
-The SQL is provided for deployment; it has not been run against your live database. The separately deployed tournament-admin Edge Function is not included in the original V12 ZIP. Its official override endpoint may still require positive gross scores: to change a finalized card to a pickup, reopen the card and use normal Pick Up entry, then finalize again.
+The equivalent migration is included in `supabase/migrations/20260927_allow_pickup_zero_scores.sql` for reproducibility. The separately deployed tournament-admin Edge Function is not included in the original V12 ZIP. Its official override endpoint may still require positive gross scores: to change a finalized card to a pickup, reopen the card and use normal Pick Up entry, then finalize again.
 
 Validation: JavaScript syntax and automated scoring/UI-handler checks passed for zero points, handicaps, team best-ball, missing versus picked-up holes, editing/clearing, locked cards and local JSON persistence. Live cloud and browser end-to-end checks have not been performed.
 
@@ -120,5 +127,5 @@ The final V12 pass adds several protections that matter in a real field:
 ## V12.3 distance and cloud-policy fix
 
 - Event and tournament setup now accepts an optional distance in metres for every hole. It is already carried through to the live scorecard and cloud `distance_m` fields.
-- The screenshot error `new row violates row-level security policy for table "events"` is caused by the initial event upsert happening before the owner is inserted into `event_members`. Apply `supabase/migrations/20260924_fix_owner_event_rls.sql` once in the dedicated Fairway One Supabase project. The queued local events should then sync on the next retry.
+- The screenshot error `new row violates row-level security policy for table "events"` is caused by the initial event upsert happening before the owner is inserted into `event_members`. The owner policy in `supabase/migrations/20260924_fix_owner_event_rls.sql` was applied to the dedicated Fairway One database on 27 September 2026. Queued local events should sync on the next retry.
 - Adding 18 distance values is negligible for Luna usage. It is a small UI/data change, not an AI generation or large model task. Luna usage is driven by the coding session itself, not by the metres stored in the app.
