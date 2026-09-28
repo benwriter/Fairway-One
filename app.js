@@ -6,6 +6,7 @@ import {
 } from './format-engine.js';
 import { initCloud, onCloudAuthChange, signUp, signIn, signOut, loadProfile, syncProfile, uploadProfilePhoto, profilePhotoUrl, joinEventByCode, claimEventPlayer, submitScorecard, verifyScorecard, reopenScorecard, tournamentAdminAction, loadPublicTournament, syncEvent, deleteCloudEvent, loadCloudEvents, loadCourseLibrary, subscribeToRound, unsubscribe } from './cloud.js';
 import QRCode from 'https://esm.sh/qrcode@1.5.4';
+import { COURSE_PRESETS } from './course-presets.js';
 
 const STORAGE_KEY='fairwayOneV12';
 const LEGACY_STORAGE_KEYS=['fairwayOneV11','fairwayOneV10','fairwayOneV9','fairwayOneV8','fairwayOneV7','fairwayOneV6','fairwayOnePrototypeV5','fairwayOnePrototypeV4'];
@@ -1216,14 +1217,29 @@ function courseLibraryEntries(){
   (state.courseLibrary||[]).forEach(course=>(course.tees||[]).forEach(tee=>entries.push({course,tee,key:`${course.id}|${tee.id}`})));
   return entries.sort((a,b)=>`${a.course.name} ${a.tee.name}`.localeCompare(`${b.course.name} ${b.tee.name}`));
 }
-function courseLibraryKey(course){return course?.libraryCourseId&&course?.libraryTeeId?`${course.libraryCourseId}|${course.libraryTeeId}`:''}
+function courseLibraryKey(course){return course?.presetId?`preset:${course.presetId}`:course?.libraryCourseId&&course?.libraryTeeId?`${course.libraryCourseId}|${course.libraryTeeId}`:''}
 function courseLibraryOptions(course){
   const selected=courseLibraryKey(course);
   const rows=courseLibraryEntries();
-  return `<option value="" ${selected?'':'selected'}>Enter course manually</option>${rows.map(({course:c,tee,key})=>`<option value="${key}" ${selected===key?'selected':''}>${escapeHtml(c.name)} · ${escapeHtml(tee.name)}${c.verified?' · Verified':' · Community'}</option>`).join('')}`;
+  return `<option value="" ${selected?'':'selected'}>Enter course manually</option><optgroup label="Scorecards supplied by you">${COURSE_PRESETS.map(p=>`<option value="preset:${p.id}" ${selected===`preset:${p.id}`?'selected':''}>${escapeHtml(p.name)} · ${escapeHtml(p.tee)}</option>`).join('')}</optgroup>${rows.length?`<optgroup label="Shared course library">${rows.map(({course:c,tee,key})=>`<option value="${key}" ${selected===key?'selected':''}>${escapeHtml(c.name)} · ${escapeHtml(tee.name)}${c.verified?' · Verified':' · Community'}</option>`).join('')}</optgroup>`:''}`;
 }
 function applyCourseLibrarySelection(d,key){
-  if(!key){delete d.course.libraryCourseId;delete d.course.libraryTeeId;return false}
+  if(!key){delete d.course.libraryCourseId;delete d.course.libraryTeeId;delete d.course.presetId;return false}
+  if(key.startsWith('preset:')){
+    const preset=COURSE_PRESETS.find(p=>p.id===key.slice(7));if(!preset)return false;
+    if(roundHasScores(d)&&preset.holes.length!==holeCount(d))return false;
+    const previousCount=holeCount(d);
+    d.course={name:preset.name,tee:preset.tee,holes:structuredClone(preset.holes),presetId:preset.id,saveToLibrary:false};
+    if(d.cloud){d.cloud.courseId=null;d.cloud.teeId=null}
+    if(d.eventMode!=='tournament'&&previousCount!==preset.holes.length){
+      if(preset.holes.length===9){d.nineHoleHandicapMode='full18';d.players.forEach(p=>{p.hcp18=Number(p.hcp18??p.hcp);p.hcp=estimateNineHandicap(p.hcp18)})}
+      else {d.players.forEach(p=>{p.hcp=Number(p.hcp18??p.hcp*2);delete p.hcp18});delete d.nineHoleHandicapMode}
+      d.currentHole=1;d.sideGames ||= {};if(d.sideGames.ntpHole>preset.holes.length)d.sideGames.ntpHole=0;if(d.sideGames.ldHole>preset.holes.length)d.sideGames.ldHole=0;
+      ensureCustomSegments(d);
+      if(preset.holes.length===18&&d.format==='custom'&&d.customSegments.length){const assigned=new Set(customAssignedHoles(d));d.customSegments[0].holes.push(...Array.from({length:9},(_,i)=>i+10).filter(h=>!assigned.has(h)));d.customSegments[0].holes.sort((a,b)=>a-b)}
+    }
+    return true;
+  }
   const entry=courseLibraryEntries().find(x=>x.key===key);if(!entry)return false;
   const {course,tee}=entry;
   d.course={name:course.name,tee:tee.name,holes:(tee.holes?.length?structuredClone(tee.holes):defaultHoles()),libraryCourseId:course.id,libraryTeeId:tee.id,saveToLibrary:false,libraryVerified:!!course.verified};
@@ -1235,6 +1251,10 @@ function roundHasScores(event){
 function setRoundHoleCount(d,count){
   if(count===holeCount(d))return;
   if(roundHasScores(d))return;
+  if(d.course.presetId?.startsWith('breakers-blue-')){
+    applyCourseLibrarySelection(d,`preset:breakers-blue-${count}`);
+    return;
+  }
   const old=d.course.holes;
   if(count===9){
     d.nineHoleHandicapMode='full18';
@@ -1250,13 +1270,14 @@ function setRoundHoleCount(d,count){
     const ranked=[...d.course.holes].sort((a,b)=>Number(a.si)-Number(b.si)||a.number-b.number);
     ranked.forEach((h,i)=>h.si=i+1);
   }
-  delete d.course.libraryCourseId;delete d.course.libraryTeeId;d.course.libraryVerified=false;
+  delete d.course.libraryCourseId;delete d.course.libraryTeeId;delete d.course.presetId;d.course.libraryVerified=false;
   if(d.cloud){d.cloud.courseId=null;d.cloud.teeId=null}
   d.currentHole=1;d.sideGames ||= {};if(d.sideGames.ntpHole>count){d.sideGames.ntpHole=0;d.sideGames.ntpPlayerId=null}if(d.sideGames.ldHole>count){d.sideGames.ldHole=0;d.sideGames.ldPlayerId=null}
   ensureCustomSegments(d);
   if(count===18&&d.format==='custom'&&d.customSegments.length){const assigned=new Set(customAssignedHoles(d));d.customSegments[0].holes.push(...defaultHoles().slice(9).map(h=>h.number).filter(h=>!assigned.has(h)));d.customSegments[0].holes.sort((a,b)=>a-b)}
 }
 function courseLibraryStatus(course){
+  if(course?.presetId){const preset=COURSE_PRESETS.find(p=>p.id===course.presetId);return `<p class="course-library-note">Your scorecard · Hole yardages converted to metres, rounded to the nearest metre. Edit any hole below for temporary tees or construction.${preset?.note?` ${escapeHtml(preset.note)}`:''}</p>`}
   if(course?.libraryCourseId)return `<p class="course-library-note">${course.libraryVerified?'✓ Verified course':'Community course'} · Hole data is loaded from the Fairway One library for this round.</p>`;
   return `<label class="toggle-card course-share-toggle"><input type="checkbox" data-course-share ${course?.saveToLibrary?'checked':''}><span><strong>Share this course with Fairway One</strong><span>Once saved to cloud, other golfers can select this course and tee. You remain the owner of the course record.</span></span></label>`;
 }
@@ -1308,8 +1329,8 @@ function parseTournamentImport(text){return String(text||'').split(/\r?\n/).map(
 function bindTournamentModal(){
   const d=ui.modal.draft;modalRoot.querySelectorAll('[data-modal-close]').forEach(x=>x.addEventListener('click',closeModal));modalRoot.querySelector('#modalBackdrop')?.addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});
   modalRoot.querySelectorAll('[data-t-draft]').forEach(x=>x.addEventListener('input',()=>{d[x.dataset.tDraft]=x.value;if(x.dataset.tDraft==='teeTime')renderTournamentModal()}));
-  modalRoot.querySelectorAll('[data-t-course]').forEach(x=>x.addEventListener('input',()=>{d.course[x.dataset.tCourse]=x.value;delete d.course.libraryCourseId;delete d.course.libraryTeeId;d.course.libraryVerified=false}));
-  modalRoot.querySelector('[data-t-course-library]')?.addEventListener('change',e=>{applyCourseLibrarySelection(d,e.target.value);renderTournamentModal()});
+  modalRoot.querySelectorAll('[data-t-course]').forEach(x=>x.addEventListener('input',()=>{d.course[x.dataset.tCourse]=x.value;delete d.course.libraryCourseId;delete d.course.libraryTeeId;delete d.course.presetId;d.course.libraryVerified=false}));
+  modalRoot.querySelector('[data-t-course-library]')?.addEventListener('change',e=>{if(e.target.value==='preset:breakers-blue-9'){toast('Tournaments require 18 holes. Choose the Breakers 18-hole preset.');renderTournamentModal();return}applyCourseLibrarySelection(d,e.target.value);renderTournamentModal()});
   modalRoot.querySelector('[data-course-share]')?.addEventListener('change',e=>d.course.saveToLibrary=!!e.target.checked);
   modalRoot.querySelector('[data-t-track-stats]')?.addEventListener('change',e=>d.trackStats=!!e.target.checked);
   modalRoot.querySelector('[data-t-format]')?.addEventListener('change',e=>{d.format=e.target.value});
@@ -1388,7 +1409,7 @@ function renderEventModal(){
 function bindEventModal(){
   modalRoot.querySelectorAll('[data-modal-close]').forEach(x=>x.addEventListener('click',closeModal));modalRoot.querySelector('#modalBackdrop')?.addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});
   modalRoot.querySelector('[data-round-holes]')?.addEventListener('change',e=>{setRoundHoleCount(ui.modal.draft,Number(e.target.value));renderEventModal()});modalRoot.querySelector('[data-nine-handicap-mode]')?.addEventListener('change',e=>{setNineHandicapMode(ui.modal.draft,e.target.value);renderEventModal()});
-  modalRoot.querySelectorAll('[data-draft]').forEach(x=>x.addEventListener('input',()=>ui.modal.draft[x.dataset.draft]=x.value));modalRoot.querySelectorAll('[data-course]').forEach(x=>x.addEventListener('input',()=>{const d=ui.modal.draft;d.course[x.dataset.course]=x.value;delete d.course.libraryCourseId;delete d.course.libraryTeeId;d.course.libraryVerified=false}));modalRoot.querySelector('[data-course-library]')?.addEventListener('change',e=>{applyCourseLibrarySelection(ui.modal.draft,e.target.value);renderEventModal()});modalRoot.querySelector('[data-course-share]')?.addEventListener('change',e=>ui.modal.draft.course.saveToLibrary=!!e.target.checked);modalRoot.querySelector('[data-track-stats]')?.addEventListener('change',e=>ui.modal.draft.trackStats=!!e.target.checked);modalRoot.querySelector('[data-advanced-stats]')?.addEventListener('change',e=>{ui.modal.draft.advancedStats=!!e.target.checked;if(e.target.checked)ui.modal.draft.trackStats=true});modalRoot.querySelectorAll('[data-side-hole]').forEach(x=>x.addEventListener('change',()=>{ui.modal.draft.sideGames ||= {ntpHole:0,ntpPlayerId:null,ldHole:0,ldPlayerId:null};ui.modal.draft.sideGames[x.dataset.sideHole]=Number(x.value)||0;if(x.dataset.sideHole==='ntpHole')ui.modal.draft.sideGames.ntpPlayerId=null;if(x.dataset.sideHole==='ldHole')ui.modal.draft.sideGames.ldPlayerId=null}));
+  modalRoot.querySelectorAll('[data-draft]').forEach(x=>x.addEventListener('input',()=>ui.modal.draft[x.dataset.draft]=x.value));modalRoot.querySelectorAll('[data-course]').forEach(x=>x.addEventListener('input',()=>{const d=ui.modal.draft;d.course[x.dataset.course]=x.value;delete d.course.libraryCourseId;delete d.course.libraryTeeId;delete d.course.presetId;d.course.libraryVerified=false}));modalRoot.querySelector('[data-course-library]')?.addEventListener('change',e=>{applyCourseLibrarySelection(ui.modal.draft,e.target.value);renderEventModal()});modalRoot.querySelector('[data-course-share]')?.addEventListener('change',e=>ui.modal.draft.course.saveToLibrary=!!e.target.checked);modalRoot.querySelector('[data-track-stats]')?.addEventListener('change',e=>ui.modal.draft.trackStats=!!e.target.checked);modalRoot.querySelector('[data-advanced-stats]')?.addEventListener('change',e=>{ui.modal.draft.advancedStats=!!e.target.checked;if(e.target.checked)ui.modal.draft.trackStats=true});modalRoot.querySelectorAll('[data-side-hole]').forEach(x=>x.addEventListener('change',()=>{ui.modal.draft.sideGames ||= {ntpHole:0,ntpPlayerId:null,ldHole:0,ldPlayerId:null};ui.modal.draft.sideGames[x.dataset.sideHole]=Number(x.value)||0;if(x.dataset.sideHole==='ntpHole')ui.modal.draft.sideGames.ntpPlayerId=null;if(x.dataset.sideHole==='ldHole')ui.modal.draft.sideGames.ldPlayerId=null}));
   modalRoot.querySelector('[data-format]')?.addEventListener('change',e=>{const d=ui.modal.draft;d.format=e.target.value;ensureCustomSegments(d);if(d.format==='ambrose'){d.ambroseMode='single';d.players=d.players.slice(0,4);d.players.forEach(p=>p.teamId='team_a');while(d.players.length<2){const n=d.players.length+1;d.players.push({id:uid('p'),name:`Player ${n}`,hcp:18,tone:n,teamId:'team_a'})}}else if(d.format!=='custom'){const info=formatInfo(d.format);while(d.players.length>info.maxPlayers)d.players.pop();while(d.players.length<info.minPlayers){const n=d.players.length+1;d.players.push({id:uid('p'),name:`Player ${n}`,hcp:18,tone:n,teamId:n%2?'team_a':'team_b'})}}renderEventModal()});
   modalRoot.querySelector('[data-ambrose-mode]')?.addEventListener('change',e=>{const d=ui.modal.draft;d.ambroseMode=e.target.value;if(d.ambroseMode==='single'){d.players=d.players.slice(0,4);d.players.forEach(p=>p.teamId='team_a');while(d.players.length<2){const n=d.players.length+1;d.players.push({id:uid('p'),name:`Player ${n}`,hcp:18,tone:n,teamId:'team_a'})}}else{while(d.players.length<4){const n=d.players.length+1;d.players.push({id:uid('p'),name:`Player ${n}`,hcp:18,tone:n,teamId:n<=2?'team_a':'team_b'})}d.players=d.players.slice(0,8);const split=Math.ceil(d.players.length/2);d.players.forEach((p,i)=>p.teamId=i<split?'team_a':'team_b')}renderEventModal()});
   modalRoot.querySelector('[data-open-custom-builder]')?.addEventListener('click',()=>{ui.modal.view='builder';renderCustomBuilderModal()});

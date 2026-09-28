@@ -1,3 +1,9 @@
+# Fairway One V13 — Scorecard Presets
+
+V13 adds selectable, editable presets for Breakers Country Club (Terrigal), Shelly Beach, Wyong, Kooindah Waters, Magenta Shores, Toukley and Gosford. It includes separate nine- and eighteen-hole Breakers layouts, with the supplied yardages converted to metres. Magenta Shores indexes follow the later miScore card. All V12 scoring and tournament features remain included.
+
+---
+
 ## 27 September compact mobile stats
 
 - Putts, sand shots and penalties stay on one row with smaller controls sized for an iPhone scorecard. Fairway and GIR remain beneath them.
@@ -34,6 +40,8 @@
 ## V12 update: nine-hole rounds
 
 In **Create Round → Course → Holes**, choose **9 holes** or **18 holes**. A nine-hole course has holes 1–9, with stroke indexes 1–9. Hole setup includes par, stroke index and distance in metres. This works with individual, team and custom round formats; custom segments and the scorecard follow the selected number of holes. The round completes after hole 9, and course records distinguish nine-hole rounds from eighteen-hole rounds. Enter the playing handicap for the selected nine holes. It is allocated directly across stroke indexes 1–9 and is never halved again. For a player whose nine-hole playing handicap is 12, indexes 1–3 receive two strokes and indexes 4–9 receive one. A plus-two playing handicap is entered as -2 and gives back one stroke on indexes 9 and 8. Tournament setup remains eighteen holes.
+
+The **Course** selector also includes scorecard presets for Breakers Country Club (separate 9- and 18-hole cards), Shelly Beach, Wyong, Kooindah Waters, Magenta Shores, Toukley and Gosford. Selecting a card fills in the tee, par, stroke index and hole distances, converted from the supplied cards' yards to rounded metres. Every hole stays editable for temporary tees or construction. Breakers' nine-hole indexes rank the first loop's difficulty from 1 to 9, while its 18-hole card retains the separate front and back loop indexes shown on the supplied card. Magenta Shores uses the complete stroke index row from the later miScore card supplied by the golfer.
 
 Once scoring starts, the hole count is locked to protect existing scores. Cloud rounds save `hole_count` and only the selected `round_holes`; switching an unscored synced round to nine holes removes old holes 10–18 on the next sync. The cloud scorecard service was not tested against a live database in this package.
 
